@@ -170,7 +170,6 @@ function defaultState(){
       courseDaysPerWeek:1,
       runTargetDistance:5,
       templateKey:'fullbody',
-      aiApiKey:'',
     },
     exercises: EXERCISES.slice(),
     customExerciseIds: [],
@@ -186,7 +185,6 @@ function defaultState(){
     bodyLogs: [], // {id, date, weightKg, bodyFatPct, waist, chest, hips, arms, thighs, photo}
     sleepLogs: [], // {id, date, durationH, quality, soreness, energy, notes}
     gamification: { xp:0, streak:0, lastActiveDate:null, badges:[] },
-    aiChatHistory: [],
   };
 }
 
@@ -704,15 +702,6 @@ function renderReglages(){
       </div>
     </div>
 
-    <h3 class="section-title">Coach IA (Claude)</h3>
-    <div class="settings-group" style="padding:14px 16px;">
-      <div class="field" style="margin-bottom:6px;">
-        <label>Clé API Anthropic</label>
-        <input type="password" id="setAiKey" placeholder="sk-ant-..." value="${s.aiApiKey||''}">
-      </div>
-      <div class="sr-sub">Reste uniquement sur cet appareil (jamais envoyée ailleurs qu'à l'API Anthropic). Obtiens une clé sur console.anthropic.com — l'usage est facturé par Anthropic selon ta consommation.</div>
-    </div>
-
     <button class="btn" id="saveSettingsBtn">Enregistrer</button>
 
     <h3 class="section-title">Exercices personnalisés</h3>
@@ -744,7 +733,6 @@ function renderReglages(){
     s.muscuDaysPerWeek = parseInt(document.getElementById('setMuscuDays').value)||0;
     s.courseDaysPerWeek = parseInt(document.getElementById('setCourseDays').value)||0;
     s.runTargetDistance = parseFloat(document.getElementById('setRunTarget').value)||5;
-    s.aiApiKey = document.getElementById('setAiKey').value.trim();
     s.templateKey = s.muscuDaysPerWeek>=4 ? 'upperlower' : s.muscuDaysPerWeek===3 ? 'ppl' : 'fullbody';
     state.plan = state.plan.filter(p=>p.status!=='pending'); // regénère la file avec nouveaux réglages
     saveState();
@@ -2113,108 +2101,6 @@ function renderDashboardScores(){
 }
 
 /* ============================================================
-   COACH IA (Claude)
-   ============================================================ */
-function buildAiSystemPrompt(){
-  const s = state.settings;
-  const recentSessions = state.sessions.slice(0,5).map(x=>{
-    if(x.type==='muscu') return `- ${fmtDate(x.date)} musculation (${x.label}), ressenti ${x.difficulty}/5`;
-    return `- ${fmtDate(x.date)} course ${x.distance_km}km en ${x.duration_min}min (${fmtPace(x.pace)}), ressenti ${x.difficulty}/5`;
-  }).join('\n') || 'Aucune séance enregistrée.';
-  const recovery = computeRecoveryScore();
-  return `Tu es un coach sportif expert (musculation + course à pied), intégré à l'app CoachPerso. Réponds en français, de façon concise, chaleureuse et concrète.
-Profil utilisateur : niveau ${s.level}, objectif ${s.goal}, ${s.muscuDaysPerWeek} séances muscu/semaine, ${s.courseDaysPerWeek} sorties course/semaine, objectif distance ${s.runTargetDistance}km.
-Score de récupération actuel : ${recovery}/100.
-5 dernières séances :
-${recentSessions}
-Donne des conseils personnalisés basés sur ces données réelles. Si une info te manque, demande-la plutôt que d'inventer.`;
-}
-
-function openAiChat(){
-  const root = document.getElementById('modalRoot');
-  const apiKey = state.settings.aiApiKey;
-  root.innerHTML = `<div class="modal-overlay" id="overlay">
-    <div class="modal-sheet ai-sheet">
-      <div class="modal-header">
-        <div class="modal-title">💬 Coach IA</div>
-        <button class="modal-close" id="closeModalBtn">✕</button>
-      </div>
-      ${!apiKey ? `
-        <div class="empty-stat">Ajoute ta clé API Anthropic dans Réglages pour activer le coach IA.</div>
-        <button class="btn secondary" id="goToSettingsBtn" style="margin-top:10px;">Aller aux réglages</button>
-      ` : `
-        <div class="ai-messages" id="aiMessages"></div>
-        <div class="ai-input-row">
-          <input type="text" id="aiInput" placeholder="Pose ta question au coach...">
-          <button class="btn" id="aiSendBtn" style="margin-top:0; width:auto; padding:12px 18px;">Envoyer</button>
-        </div>
-      `}
-    </div>
-  </div>`;
-  document.getElementById('closeModalBtn').onclick = closeModal;
-  document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
-  if(!apiKey){
-    document.getElementById('goToSettingsBtn').onclick = ()=>{ closeModal(); switchView('reglages'); };
-    return;
-  }
-  renderAiMessages();
-  document.getElementById('aiSendBtn').onclick = sendAiMessage;
-  document.getElementById('aiInput').addEventListener('keydown', e=>{ if(e.key==='Enter') sendAiMessage(); });
-}
-
-function renderAiMessages(){
-  const wrap = document.getElementById('aiMessages');
-  if(!wrap) return;
-  wrap.innerHTML = state.aiChatHistory.map(m=>
-    `<div class="ai-bubble ${m.role}">${m.content}</div>`).join('') || `<div class="empty-stat">Pose ta première question à ton coach !</div>`;
-  wrap.scrollTop = wrap.scrollHeight;
-}
-
-async function sendAiMessage(){
-  const input = document.getElementById('aiInput');
-  const text = input.value.trim();
-  if(!text) return;
-  input.value = '';
-  state.aiChatHistory.push({ role:'user', content:text });
-  renderAiMessages();
-  const wrap = document.getElementById('aiMessages');
-  wrap.insertAdjacentHTML('beforeend', `<div class="ai-bubble assistant loading" id="aiLoadingBubble">…</div>`);
-  wrap.scrollTop = wrap.scrollHeight;
-
-  try{
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key': state.settings.aiApiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true',
-      },
-      body: JSON.stringify({
-        model:'claude-sonnet-4-5',
-        max_tokens:800,
-        system: buildAiSystemPrompt(),
-        messages: state.aiChatHistory.map(m=>({role:m.role, content:m.content})),
-      }),
-    });
-    const data = await res.json();
-    document.getElementById('aiLoadingBubble')?.remove();
-    if(!res.ok){
-      const errMsg = data?.error?.message || 'Erreur de connexion à l\'IA';
-      state.aiChatHistory.push({ role:'assistant', content:`⚠️ ${errMsg}` });
-    } else {
-      const reply = data.content?.map(c=>c.text).join('') || '(réponse vide)';
-      state.aiChatHistory.push({ role:'assistant', content: reply });
-    }
-  }catch(e){
-    document.getElementById('aiLoadingBubble')?.remove();
-    state.aiChatHistory.push({ role:'assistant', content:'⚠️ Impossible de contacter l\'IA. Vérifie ta connexion et ta clé API.' });
-  }
-  saveState();
-  renderAiMessages();
-}
-
-/* ============================================================
    ONBOARDING
    ============================================================ */
 const OB_STEPS = [
@@ -2355,7 +2241,6 @@ function init(){
     btn.onclick = ()=> switchView(btn.dataset.view);
   });
   document.getElementById('settingsBtn').onclick = ()=> switchView('reglages');
-  document.getElementById('aiCoachBtn').onclick = openAiChat;
   document.getElementById('fabLog').onclick = openFreeLogChooser;
 
   document.getElementById('entrainementTabs').addEventListener('click', e=>{

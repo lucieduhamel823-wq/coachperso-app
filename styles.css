@@ -396,14 +396,3 @@ svg.chart{width:100%; height:auto; overflow:visible;}
 /* Corps */
 .body-photo-thumb{width:64px; height:64px; object-fit:cover; border-radius:10px; margin-top:8px;}
 
-/* Coach IA */
-.ai-sheet{display:flex; flex-direction:column; height:80dvh;}
-.ai-messages{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:4px 2px;}
-.ai-bubble{max-width:85%; padding:10px 14px; border-radius:14px; font-size:14.5px; line-height:1.5; white-space:pre-wrap;}
-.ai-bubble.user{align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:4px;}
-.ai-bubble.assistant{align-self:flex-start; background:var(--card); border:1px solid var(--border); border-bottom-left-radius:4px;}
-.ai-bubble.loading{opacity:.5;}
-.ai-input-row{display:flex; gap:8px; padding-top:10px; border-top:1px solid var(--border); margin-top:10px;}
-.ai-input-row input{
-  flex:1; padding:12px 14px; border-radius:11px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:15px;
-}
