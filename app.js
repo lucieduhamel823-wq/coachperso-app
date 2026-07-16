@@ -158,12 +158,19 @@ function defaultState(){
     settings: {
       onboarded:false,
       name:'',
+      age:null,
+      sex:'',
+      heightCm:null,
+      weightKg:null,
+      hrMax:null,
+      hrRest:null,
       level:'debutant',
       goal:'general',
       muscuDaysPerWeek:2,
       courseDaysPerWeek:1,
       runTargetDistance:5,
       templateKey:'fullbody',
+      aiApiKey:'',
     },
     exercises: EXERCISES.slice(),
     customExerciseIds: [],
@@ -171,7 +178,30 @@ function defaultState(){
     plan: [],
     cycleIndex: 0,
     runProgress: { targetDistance:2, targetPace:7.0 }, // pace en min/km décimal
+    nutrition: {
+      targets: { calories:2000, protein:120, carbs:220, fat:65 },
+      customFoods: [],
+      meals: [], // {id, date, mealType, items:[{foodId,name,qty,calories,protein,carbs,fat}]}
+    },
+    bodyLogs: [], // {id, date, weightKg, bodyFatPct, waist, chest, hips, arms, thighs, photo}
+    sleepLogs: [], // {id, date, durationH, quality, soreness, energy, notes}
+    gamification: { xp:0, streak:0, lastActiveDate:null, badges:[] },
+    aiChatHistory: [],
   };
+}
+
+function mergeDeep(base, override){
+  if(override==null) return base;
+  if(Array.isArray(base) || typeof base!=='object'){
+    return override;
+  }
+  const out = {...base};
+  Object.keys(override).forEach(k=>{
+    const bv = base[k], ov = override[k];
+    const bothPlainObjects = bv && ov && typeof bv==='object' && typeof ov==='object' && !Array.isArray(bv) && !Array.isArray(ov);
+    out[k] = bothPlainObjects ? mergeDeep(bv, ov) : ov;
+  });
+  return out;
 }
 
 function loadState(){
@@ -179,7 +209,7 @@ function loadState(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(!raw) return defaultState();
     const parsed = JSON.parse(raw);
-    return Object.assign(defaultState(), parsed);
+    return mergeDeep(defaultState(), parsed);
   }catch(e){
     return defaultState();
   }
@@ -349,12 +379,14 @@ function completePlanItem(planId, sessionData){
   if(sessionData.type==='course') adaptRunProgress(sessionData);
   saveState();
   ensurePlanFilled();
+  awardXp(20);
 }
 
 function logFreeSession(sessionData){
   state.sessions.unshift(sessionData);
   if(sessionData.type==='course') adaptRunProgress(sessionData);
   saveState();
+  awardXp(20);
 }
 
 /* ============================================================
@@ -362,6 +394,7 @@ function logFreeSession(sessionData){
    ============================================================ */
 function renderAccueil(){
   ensurePlanFilled();
+  renderDashboardScores();
   renderWeekProgress();
   renderNextSession();
   renderUpcoming();
@@ -496,6 +529,7 @@ function renderStats(){
   const el = document.getElementById('statsContent');
   if(statTab==='volume') el.innerHTML = statVolumeHtml();
   else if(statTab==='exo') el.innerHTML = statExoHtml();
+  else if(statTab==='records') el.innerHTML = statRecordsHtml();
   else el.innerHTML = statCourseHtml();
   if(statTab==='exo') wireExoSelect();
 }
@@ -609,7 +643,35 @@ function lineChart(values, labels, color, unit='', invert=false){
 function renderReglages(){
   const el = document.getElementById('reglagesContent');
   const s = state.settings;
+  const g = state.gamification;
+  const unlockedBadges = BADGES.filter(b=> g.badges.includes(b.id));
   el.innerHTML = `
+    <div class="stat-card" style="text-align:center;">
+      <div class="dash-label" style="margin-bottom:6px;">Niveau ${levelFromXp(g.xp)} · ${g.xp} XP · 🔥 ${g.streak}j de série</div>
+      <div class="badge-grid">
+        ${BADGES.map(b=>`<div class="badge-item ${unlockedBadges.includes(b)?'':'locked'}" title="${b.label}">${b.emoji}</div>`).join('')}
+      </div>
+    </div>
+
+    <h3 class="section-title">Profil</h3>
+    <div class="settings-group">
+      <div class="settings-row"><div class="sr-label">Prénom</div><input type="text" id="setName" value="${s.name||''}" style="width:140px;"></div>
+      <div class="settings-row"><div class="sr-label">Âge</div><input type="number" id="setAge" value="${s.age||''}"></div>
+      <div class="settings-row">
+        <div class="sr-label">Sexe</div>
+        <select id="setSex">
+          <option value="">—</option>
+          <option value="femme" ${s.sex==='femme'?'selected':''}>Femme</option>
+          <option value="homme" ${s.sex==='homme'?'selected':''}>Homme</option>
+        </select>
+      </div>
+      <div class="settings-row"><div class="sr-label">Taille (cm)</div><input type="number" id="setHeight" value="${s.heightCm||''}"></div>
+      <div class="settings-row"><div class="sr-label">Poids (kg)</div><input type="number" step="0.1" id="setWeight" value="${s.weightKg||''}"></div>
+      <div class="settings-row"><div class="sr-label">FC max (bpm)</div><input type="number" id="setHrMax" value="${s.hrMax||''}"></div>
+      <div class="settings-row"><div class="sr-label">FC repos (bpm)</div><input type="number" id="setHrRest" value="${s.hrRest||''}"></div>
+    </div>
+
+    <h3 class="section-title">Entraînement</h3>
     <div class="settings-group">
       <div class="settings-row">
         <div><div class="sr-label">Niveau</div></div>
@@ -641,6 +703,16 @@ function renderReglages(){
         <input type="number" id="setRunTarget" min="1" max="100" value="${s.runTargetDistance}">
       </div>
     </div>
+
+    <h3 class="section-title">Coach IA (Claude)</h3>
+    <div class="settings-group" style="padding:14px 16px;">
+      <div class="field" style="margin-bottom:6px;">
+        <label>Clé API Anthropic</label>
+        <input type="password" id="setAiKey" placeholder="sk-ant-..." value="${s.aiApiKey||''}">
+      </div>
+      <div class="sr-sub">Reste uniquement sur cet appareil (jamais envoyée ailleurs qu'à l'API Anthropic). Obtiens une clé sur console.anthropic.com — l'usage est facturé par Anthropic selon ta consommation.</div>
+    </div>
+
     <button class="btn" id="saveSettingsBtn">Enregistrer</button>
 
     <h3 class="section-title">Exercices personnalisés</h3>
@@ -660,11 +732,19 @@ function renderReglages(){
   renderCustomExoList();
 
   document.getElementById('saveSettingsBtn').onclick = ()=>{
+    s.name = document.getElementById('setName').value.trim();
+    s.age = parseInt(document.getElementById('setAge').value)||null;
+    s.sex = document.getElementById('setSex').value;
+    s.heightCm = parseFloat(document.getElementById('setHeight').value)||null;
+    s.weightKg = parseFloat(document.getElementById('setWeight').value)||null;
+    s.hrMax = parseInt(document.getElementById('setHrMax').value)||null;
+    s.hrRest = parseInt(document.getElementById('setHrRest').value)||null;
     s.level = document.getElementById('setLevel').value;
     s.goal = document.getElementById('setGoal').value;
     s.muscuDaysPerWeek = parseInt(document.getElementById('setMuscuDays').value)||0;
     s.courseDaysPerWeek = parseInt(document.getElementById('setCourseDays').value)||0;
     s.runTargetDistance = parseFloat(document.getElementById('setRunTarget').value)||5;
+    s.aiApiKey = document.getElementById('setAiKey').value.trim();
     s.templateKey = s.muscuDaysPerWeek>=4 ? 'upperlower' : s.muscuDaysPerWeek===3 ? 'ppl' : 'fullbody';
     state.plan = state.plan.filter(p=>p.status!=='pending'); // regénère la file avec nouveaux réglages
     saveState();
@@ -1017,6 +1097,9 @@ function openFreeLogChooser(){
       <div class="ob-options">
         <button class="ob-option" id="chooseMuscu">🏋️ Musculation<span class="oo-sub">Enregistrer une séance libre</span></button>
         <button class="ob-option" id="chooseCourse">🏃 Course à pied<span class="oo-sub">Enregistrer une sortie libre</span></button>
+        <button class="ob-option" id="chooseRepas">🥗 Repas<span class="oo-sub">Ajouter un aliment</span></button>
+        <button class="ob-option" id="choosePesee">📏 Relevé corporel<span class="oo-sub">Poids, mensurations, photo</span></button>
+        <button class="ob-option" id="chooseSommeil">😴 Sommeil<span class="oo-sub">Enregistrer une nuit</span></button>
       </div>
     </div>
   </div>`;
@@ -1024,6 +1107,9 @@ function openFreeLogChooser(){
   document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
   document.getElementById('chooseMuscu').onclick = ()=> openLogModal('muscu', null);
   document.getElementById('chooseCourse').onclick = ()=> startCourseFlow(null);
+  document.getElementById('chooseRepas').onclick = ()=> openFoodLogModal('collation');
+  document.getElementById('choosePesee').onclick = ()=> openBodyLogModal();
+  document.getElementById('chooseSommeil').onclick = ()=> openSleepLogModal();
 }
 
 /* ---------------- Choix GPS / saisie manuelle pour une course ---------------- */
@@ -1281,6 +1367,854 @@ function finishTracker(){
 }
 
 /* ============================================================
+   GAMIFICATION — XP, séries, badges
+   ============================================================ */
+const BADGES = [
+  { id:'first_session', label:'Première séance', emoji:'🎬', check:s=> s.sessions.length>=1 },
+  { id:'ten_sessions', label:'10 séances', emoji:'🔟', check:s=> s.sessions.length>=10 },
+  { id:'fifty_sessions', label:'50 séances', emoji:'🏅', check:s=> s.sessions.length>=50 },
+  { id:'streak_7', label:'Série de 7 jours', emoji:'🔥', check:s=> s.gamification.streak>=7 },
+  { id:'streak_30', label:'Série de 30 jours', emoji:'⚡', check:s=> s.gamification.streak>=30 },
+  { id:'ten_runs', label:'10 sorties course', emoji:'🏃', check:s=> s.sessions.filter(x=>x.type==='course').length>=10 },
+  { id:'fifty_km', label:'50 km cumulés', emoji:'🗺️', check:s=> s.sessions.filter(x=>x.type==='course').reduce((a,x)=>a+x.distance_km,0)>=50 },
+  { id:'hundred_km', label:'100 km cumulés', emoji:'🌍', check:s=> s.sessions.filter(x=>x.type==='course').reduce((a,x)=>a+x.distance_km,0)>=100 },
+  { id:'thirty_muscu', label:'30 séances muscu', emoji:'💪', check:s=> s.sessions.filter(x=>x.type==='muscu').length>=30 },
+  { id:'nutrition_track', label:'Premier repas suivi', emoji:'🥗', check:s=> s.nutrition.meals.length>=1 },
+  { id:'sleep_week', label:'7 nuits suivies', emoji:'😴', check:s=> s.sleepLogs.length>=7 },
+  { id:'body_tracker', label:'Premier relevé corporel', emoji:'📏', check:s=> s.bodyLogs.length>=1 },
+];
+
+function awardXp(amount){
+  state.gamification.xp += amount;
+  const today = new Date().toDateString();
+  const last = state.gamification.lastActiveDate;
+  if(last !== today){
+    const yesterday = new Date(Date.now()-86400000).toDateString();
+    state.gamification.streak = (last===yesterday) ? state.gamification.streak+1 : 1;
+    state.gamification.lastActiveDate = today;
+  }
+  saveState();
+  checkBadges();
+}
+
+function checkBadges(){
+  const newly = [];
+  BADGES.forEach(b=>{
+    if(!state.gamification.badges.includes(b.id) && b.check(state)){
+      state.gamification.badges.push(b.id);
+      newly.push(b);
+    }
+  });
+  if(newly.length){
+    saveState();
+    newly.forEach((b,i)=> setTimeout(()=> toast(`${b.emoji} Badge débloqué : ${b.label}`), i*1600));
+  }
+}
+
+function xpForLevel(level){ return level*level*50; } // XP cumulé requis pour atteindre `level`
+function levelFromXp(xp){
+  let lvl = 1;
+  while(xp >= xpForLevel(lvl+1)) lvl++;
+  return lvl;
+}
+
+/* ============================================================
+   ANALYTICS AVANCÉES — VMA/VO2max, records, charge d'entraînement
+   ============================================================ */
+function sessionLoad(s){
+  if(s.type==='course') return (s.duration_min||0) * (s.difficulty||3);
+  const totalSets = (s.exercises||[]).reduce((a,e)=> a + (e.sets? e.sets.length:0), 0);
+  return totalSets * 3 * (s.difficulty||3);
+}
+function loadInWindow(days){
+  const since = Date.now() - days*86400000;
+  return state.sessions.filter(s=> new Date(s.date).getTime() >= since).reduce((a,s)=> a+sessionLoad(s), 0);
+}
+function acwr(){
+  if(state.sessions.length < 4) return null;
+  const oldest = state.sessions.reduce((a,s)=> Math.min(a, new Date(s.date).getTime()), Date.now());
+  if(Date.now() - oldest < 13*86400000) return null; // trop peu d'historique pour un ratio fiable
+  const acute = loadInWindow(7)/7;
+  const chronic = loadInWindow(28)/28;
+  if(chronic < 1) return null;
+  return acute/chronic;
+}
+function acwrLabel(ratio){
+  if(ratio==null) return { text:'Pas assez de données', cls:'' };
+  if(ratio>1.5) return { text:'Charge élevée — risque accru', cls:'danger' };
+  if(ratio>1.3) return { text:'Charge en hausse rapide', cls:'warn' };
+  if(ratio<0.8) return { text:'Charge faible (récup/désentraînement)', cls:'' };
+  return { text:'Charge équilibrée', cls:'good' };
+}
+
+function estimateVMA(){
+  const cutoff = Date.now() - 60*86400000;
+  const candidates = state.sessions.filter(s=> s.type==='course' && s.distance_km>=3 && new Date(s.date).getTime()>=cutoff);
+  if(!candidates.length) return null;
+  const best = candidates.reduce((a,b)=> a.pace<b.pace? a:b);
+  const speedKmh = 60/best.pace;
+  const vma = speedKmh/0.90;
+  return { vma, vo2max: vma*3.5, basedOn: best };
+}
+function predictRaceTimeMin(distanceKm){
+  const est = estimateVMA();
+  if(!est) return null;
+  const refDist = est.basedOn.distance_km, refTimeMin = est.basedOn.duration_min;
+  return refTimeMin * Math.pow(distanceKm/refDist, 1.06);
+}
+function personalRecordsRun(){
+  const buckets = [ {label:'5 km', min:4.5, max:5.5}, {label:'10 km', min:9, max:11}, {label:'Semi (21 km)', min:19, max:23}, {label:'Marathon (42 km)', min:39, max:45} ];
+  return buckets.map(b=>{
+    const matches = state.sessions.filter(s=> s.type==='course' && s.distance_km>=b.min && s.distance_km<=b.max);
+    if(!matches.length) return { label:b.label, value:null };
+    const best = matches.reduce((a,c)=> a.duration_min<c.duration_min? a:c);
+    return { label:b.label, value: fmtElapsed(best.duration_min*60000), date:best.date };
+  });
+}
+function personalRecordsMuscu(){
+  const weighted = state.exercises.filter(e=>e.kind==='weighted');
+  const prs = weighted.map(exo=>{
+    const maxW = state.sessions.filter(s=>s.type==='muscu')
+      .flatMap(s=> s.exercises.filter(e=>e.exerciseId===exo.id))
+      .flatMap(e=> (e.sets||[]).map(st=>st.weight||0));
+    return maxW.length ? { name:exo.name, weight:Math.max(...maxW) } : null;
+  }).filter(Boolean).sort((a,b)=> b.weight-a.weight);
+  return prs.slice(0,8);
+}
+
+function statRecordsHtml(){
+  const vmaEst = estimateVMA();
+  const runPRs = personalRecordsRun();
+  const muscuPRs = personalRecordsMuscu();
+  const ratio = acwr();
+  const acwrInfo = acwrLabel(ratio);
+
+  const vmaHtml = vmaEst ? `
+    <div class="kpi-row">
+      <div class="kpi"><div class="kv">${vmaEst.vma.toFixed(1)}</div><div class="kl">VMA est. (km/h)</div></div>
+      <div class="kpi"><div class="kv">${Math.round(vmaEst.vo2max)}</div><div class="kl">VO2max est.</div></div>
+    </div>
+    <div class="sr-sub" style="margin-top:8px;">Basé sur ta meilleure sortie récente (${vmaEst.basedOn.distance_km} km à ${fmtPace(vmaEst.basedOn.pace)}). Estimation indicative, pas une mesure en laboratoire.</div>
+  ` : `<div class="empty-stat">Fais au moins une course de 3 km pour estimer ta VMA.</div>`;
+
+  const predHtml = vmaEst ? `
+    <div class="splits-list">
+      ${[5,10,21.1,42.2].map(d=>`<div class="split-row"><span>${d===21.1?'Semi':d===42.2?'Marathon':d+' km'}</span><span>${fmtElapsed(predictRaceTimeMin(d)*60000)}</span></div>`).join('')}
+    </div>` : '';
+
+  const runPrHtml = runPRs.map(p=> `<div class="split-row"><span>${p.label}</span><span>${p.value ? p.value : '—'}</span></div>`).join('');
+  const muscuPrHtml = muscuPRs.length ? muscuPRs.map(p=>`<div class="split-row"><span>${p.name}</span><span>${p.weight} kg</span></div>`).join('') : `<div class="empty-stat">Pas encore de charge enregistrée.</div>`;
+
+  return `
+    <div class="stat-card">
+      <div class="stat-title">VMA / VO2max estimés</div>
+      ${vmaHtml}
+    </div>
+    ${predHtml ? `<div class="stat-card"><div class="stat-title">Temps de course prédits</div>${predHtml}</div>` : ''}
+    <div class="stat-card">
+      <div class="stat-title">Charge d'entraînement</div>
+      <div class="acwr-badge ${acwrInfo.cls}">${ratio!=null? ratio.toFixed(2):'—'} · ${acwrInfo.text}</div>
+      <div class="sr-sub" style="margin-top:8px;">Ratio charge aiguë (7j) / chronique (28j). Zone idéale : 0.8 – 1.3.</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Records personnels · Course</div>
+      <div class="splits-list">${runPrHtml}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Records personnels · Musculation</div>
+      <div class="splits-list">${muscuPrHtml}</div>
+    </div>`;
+}
+
+/* ============================================================
+   NUTRITION
+   ============================================================ */
+const FOOD_DB = [
+  { id:'poulet', name:'Blanc de poulet', cal:165, p:31, c:0, f:3.6 },
+  { id:'boeuf_hache', name:'Bœuf haché 5%', cal:137, p:21, c:0, f:5 },
+  { id:'saumon', name:'Saumon', cal:208, p:20, c:0, f:13 },
+  { id:'thon', name:'Thon (nature)', cal:116, p:26, c:0, f:1 },
+  { id:'oeuf', name:'Œuf', cal:155, p:13, c:1.1, f:11 },
+  { id:'jambon_blanc', name:'Jambon blanc', cal:107, p:18, c:1, f:3 },
+  { id:'dinde', name:'Blanc de dinde', cal:135, p:29, c:0, f:1.5 },
+  { id:'porc', name:'Filet de porc', cal:143, p:26, c:0, f:4 },
+  { id:'crevettes', name:'Crevettes', cal:99, p:24, c:0.2, f:0.3 },
+  { id:'tofu', name:'Tofu', cal:76, p:8, c:1.9, f:4.8 },
+  { id:'riz_blanc', name:'Riz blanc cuit', cal:130, p:2.7, c:28, f:0.3 },
+  { id:'riz_complet', name:'Riz complet cuit', cal:123, p:2.7, c:26, f:1 },
+  { id:'pates', name:'Pâtes cuites', cal:158, p:5.8, c:31, f:0.9 },
+  { id:'quinoa', name:'Quinoa cuit', cal:120, p:4.4, c:21, f:1.9 },
+  { id:'pomme_de_terre', name:'Pomme de terre', cal:87, p:1.9, c:20, f:0.1 },
+  { id:'patate_douce', name:'Patate douce', cal:86, p:1.6, c:20, f:0.1 },
+  { id:'pain_blanc', name:'Pain blanc', cal:265, p:9, c:49, f:3.2 },
+  { id:'pain_complet', name:'Pain complet', cal:247, p:13, c:41, f:3.4 },
+  { id:'flocons_avoine', name:"Flocons d'avoine", cal:389, p:17, c:66, f:7 },
+  { id:'lentilles', name:'Lentilles cuites', cal:116, p:9, c:20, f:0.4 },
+  { id:'pois_chiches', name:'Pois chiches cuits', cal:164, p:9, c:27, f:2.6 },
+  { id:'haricots_rouges', name:'Haricots rouges cuits', cal:127, p:8.7, c:23, f:0.5 },
+  { id:'pomme', name:'Pomme', cal:52, p:0.3, c:14, f:0.2 },
+  { id:'banane', name:'Banane', cal:89, p:1.1, c:23, f:0.3 },
+  { id:'orange', name:'Orange', cal:47, p:0.9, c:12, f:0.1 },
+  { id:'fraises', name:'Fraises', cal:32, p:0.7, c:7.7, f:0.3 },
+  { id:'myrtilles', name:'Myrtilles', cal:57, p:0.7, c:14, f:0.3 },
+  { id:'raisin', name:'Raisin', cal:69, p:0.7, c:18, f:0.2 },
+  { id:'avocat', name:'Avocat', cal:160, p:2, c:9, f:15 },
+  { id:'brocoli', name:'Brocoli', cal:34, p:2.8, c:7, f:0.4 },
+  { id:'epinards', name:'Épinards', cal:23, p:2.9, c:3.6, f:0.4 },
+  { id:'carotte', name:'Carotte', cal:41, p:0.9, c:10, f:0.2 },
+  { id:'tomate', name:'Tomate', cal:18, p:0.9, c:3.9, f:0.2 },
+  { id:'courgette', name:'Courgette', cal:17, p:1.2, c:3.1, f:0.3 },
+  { id:'salade', name:'Salade verte', cal:15, p:1.4, c:2.9, f:0.2 },
+  { id:'concombre', name:'Concombre', cal:15, p:0.7, c:3.6, f:0.1 },
+  { id:'poivron', name:'Poivron', cal:31, p:1, c:6, f:0.3 },
+  { id:'champignons', name:'Champignons', cal:22, p:3.1, c:3.3, f:0.3 },
+  { id:'lait_demi_ecreme', name:'Lait demi-écrémé', cal:46, p:3.3, c:4.8, f:1.6 },
+  { id:'yaourt_nature', name:'Yaourt nature', cal:61, p:3.5, c:4.7, f:3.3 },
+  { id:'yaourt_grec', name:'Yaourt grec', cal:97, p:9, c:3.6, f:5 },
+  { id:'fromage_blanc', name:'Fromage blanc 0%', cal:47, p:8, c:3.5, f:0.2 },
+  { id:'fromage', name:'Fromage (emmental)', cal:380, p:28, c:0.5, f:30 },
+  { id:'beurre', name:'Beurre', cal:717, p:0.9, c:0.1, f:81 },
+  { id:'huile_olive', name:"Huile d'olive", cal:884, p:0, c:0, f:100 },
+  { id:'amandes', name:'Amandes', cal:579, p:21, c:22, f:50 },
+  { id:'noix', name:'Noix', cal:654, p:15, c:14, f:65 },
+  { id:'cacahuetes', name:'Cacahuètes', cal:567, p:26, c:16, f:49 },
+  { id:'beurre_cacahuete', name:'Beurre de cacahuète', cal:588, p:25, c:20, f:50 },
+  { id:'chocolat_noir', name:'Chocolat noir 70%', cal:598, p:7.8, c:46, f:43 },
+  { id:'miel', name:'Miel', cal:304, p:0.3, c:82, f:0 },
+  { id:'sucre', name:'Sucre', cal:387, p:0, c:100, f:0 },
+  { id:'whey', name:'Whey protéine (poudre)', cal:380, p:75, c:8, f:5 },
+  { id:'granola', name:'Granola', cal:471, p:10, c:64, f:20 },
+  { id:'cereales', name:"Céréales petit-déj", cal:378, p:7, c:84, f:1.5 },
+  { id:'houmous', name:'Houmous', cal:166, p:8, c:14, f:10 },
+  { id:'olives', name:'Olives', cal:115, p:0.8, c:6, f:11 },
+  { id:'pizza', name:'Pizza (margherita)', cal:266, p:11, c:33, f:10 },
+  { id:'frites', name:'Frites', cal:312, p:3.4, c:41, f:15 },
+  { id:'burger', name:'Burger', cal:295, p:17, c:24, f:14 },
+  { id:'sushi', name:'Sushi (assortiment)', cal:150, p:6, c:28, f:1 },
+  { id:'soupe_legumes', name:'Soupe de légumes', cal:35, p:1.5, c:6, f:0.5 },
+  { id:'lait_amande', name:"Lait d'amande", cal:24, p:0.5, c:2.5, f:1.1 },
+  { id:'jus_orange', name:"Jus d'orange", cal:45, p:0.7, c:10, f:0.2 },
+  { id:'cafe', name:'Café noir', cal:2, p:0.3, c:0, f:0 },
+  { id:'biere', name:'Bière', cal:43, p:0.5, c:3.6, f:0 },
+  { id:'vin_rouge', name:'Vin rouge', cal:85, p:0.1, c:2.6, f:0 },
+];
+const MEAL_TYPES = [
+  { v:'petit_dej', l:'Petit-déjeuner', emoji:'🥐' },
+  { v:'dejeuner', l:'Déjeuner', emoji:'🍽️' },
+  { v:'diner', l:'Dîner', emoji:'🌙' },
+  { v:'collation', l:'Collation', emoji:'🍎' },
+];
+
+function todayStr(){ return new Date().toDateString(); }
+function foodDbAll(){ return [...FOOD_DB, ...state.nutrition.customFoods]; }
+function mealsForDate(dateStr){ return state.nutrition.meals.filter(m=> new Date(m.date).toDateString()===dateStr); }
+function macroTotals(meals){
+  return meals.reduce((a,m)=>({
+    calories:a.calories+m.calories, protein:a.protein+m.protein, carbs:a.carbs+m.carbs, fat:a.fat+m.fat
+  }), {calories:0,protein:0,carbs:0,fat:0});
+}
+function suggestNutritionTargets(){
+  const s = state.settings;
+  if(!s.weightKg || !s.heightCm || !s.age || !s.sex){
+    toast('Renseigne ton profil (âge, sexe, taille, poids) dans Réglages');
+    return null;
+  }
+  const bmr = 10*s.weightKg + 6.25*s.heightCm - 5*s.age + (s.sex==='homme'? 5 : -161);
+  let tdee = bmr * 1.4;
+  if(s.goal==='perte_poids') tdee -= 400;
+  else if(s.goal==='prise_masse') tdee += 300;
+  const calories = Math.round(tdee);
+  const protein = Math.round(s.weightKg * 1.8);
+  const fat = Math.round(calories*0.28/9);
+  const carbs = Math.round((calories - protein*4 - fat*9)/4);
+  return { calories, protein, carbs, fat:Math.max(0,fat) };
+}
+
+function macroBarHtml(label, value, target, color){
+  const pct = target>0 ? Math.min(100, Math.round(value/target*100)) : 0;
+  return `<div class="macro-bar">
+    <div class="macro-bar-label"><span>${label}</span><span>${Math.round(value)} / ${target}${label==='Calories'?' kcal':'g'}</span></div>
+    <div class="macro-bar-track"><div class="macro-bar-fill" style="width:${pct}%; background:${color};"></div></div>
+  </div>`;
+}
+
+function renderNutrition(){
+  const el = document.getElementById('santeContent');
+  const meals = mealsForDate(todayStr());
+  const totals = macroTotals(meals);
+  const t = state.nutrition.targets;
+
+  const mealsByType = MEAL_TYPES.map(mt=>{
+    const items = meals.filter(m=>m.mealType===mt.v);
+    return { ...mt, items };
+  });
+
+  const shopping = state.nutrition.shoppingList || [];
+
+  el.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-title">Aujourd'hui</div>
+      ${macroBarHtml('Calories', totals.calories, t.calories, 'var(--accent)')}
+      ${macroBarHtml('Protéines', totals.protein, t.protein, 'var(--muscu)')}
+      ${macroBarHtml('Glucides', totals.carbs, t.carbs, 'var(--course)')}
+      ${macroBarHtml('Lipides', totals.fat, t.fat, '#e0a336')}
+    </div>
+    <button class="btn secondary" id="suggestTargetsBtn">Suggérer mes objectifs (selon profil)</button>
+
+    <h3 class="section-title">Repas d'aujourd'hui</h3>
+    ${mealsByType.map(mt=>`
+      <div class="meal-group">
+        <div class="meal-group-head">${mt.emoji} ${mt.l}</div>
+        ${mt.items.length ? mt.items.map(it=>`
+          <div class="meal-item" data-id="${it.id}">
+            <span>${it.name} <span class="sr-sub">${it.qty}g</span></span>
+            <span>${Math.round(it.calories)} kcal <button class="remove-exo-block remove-meal-btn" data-id="${it.id}">✕</button></span>
+          </div>`).join('') : `<div class="sr-sub" style="padding:4px 0 10px;">Rien enregistré</div>`}
+        <button type="button" class="add-set-btn add-food-btn" data-mealtype="${mt.v}">+ Ajouter un aliment</button>
+      </div>`).join('')}
+
+    <h3 class="section-title">Liste de courses</h3>
+    <div class="settings-group" style="padding:10px 16px;">
+      <div id="shoppingListWrap">${shoppingListHtml(shopping)}</div>
+      <div class="row2" style="margin-top:10px;">
+        <div class="field" style="margin-bottom:0; flex:2;"><input id="newShopItem" placeholder="Ajouter un article"></div>
+        <button class="btn secondary" id="addShopItemBtn" style="margin-top:0; flex:1;">Ajouter</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('suggestTargetsBtn').onclick = ()=>{
+    const sug = suggestNutritionTargets();
+    if(sug){ state.nutrition.targets = sug; saveState(); renderNutrition(); toast('Objectifs mis à jour'); }
+  };
+  el.querySelectorAll('.add-food-btn').forEach(btn=>{
+    btn.onclick = ()=> openFoodLogModal(btn.dataset.mealtype);
+  });
+  el.querySelectorAll('.remove-meal-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      state.nutrition.meals = state.nutrition.meals.filter(m=>m.id!==btn.dataset.id);
+      saveState();
+      renderNutrition();
+    };
+  });
+  document.getElementById('addShopItemBtn').onclick = ()=>{
+    const input = document.getElementById('newShopItem');
+    const name = input.value.trim();
+    if(!name) return;
+    state.nutrition.shoppingList = state.nutrition.shoppingList || [];
+    state.nutrition.shoppingList.push({ id:uid(), name, checked:false });
+    saveState();
+    input.value='';
+    document.getElementById('shoppingListWrap').innerHTML = shoppingListHtml(state.nutrition.shoppingList);
+    wireShoppingList();
+  };
+  wireShoppingList();
+}
+
+function shoppingListHtml(list){
+  if(!list.length) return `<div class="sr-sub">Liste vide.</div>`;
+  return list.map(it=>`
+    <div class="exo-tag-row">
+      <label style="display:flex; align-items:center; gap:8px; ${it.checked?'opacity:.5; text-decoration:line-through;':''}">
+        <input type="checkbox" class="shop-check" data-id="${it.id}" ${it.checked?'checked':''}> ${it.name}
+      </label>
+      <button class="remove-exo shop-remove" data-id="${it.id}">Supprimer</button>
+    </div>`).join('');
+}
+function wireShoppingList(){
+  document.querySelectorAll('.shop-check').forEach(cb=>{
+    cb.onchange = ()=>{
+      const item = state.nutrition.shoppingList.find(i=>i.id===cb.dataset.id);
+      if(item){ item.checked = cb.checked; saveState(); renderNutrition(); }
+    };
+  });
+  document.querySelectorAll('.shop-remove').forEach(btn=>{
+    btn.onclick = ()=>{
+      state.nutrition.shoppingList = state.nutrition.shoppingList.filter(i=>i.id!==btn.dataset.id);
+      saveState();
+      renderNutrition();
+    };
+  });
+}
+
+function openFoodLogModal(mealType){
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `<div class="modal-overlay" id="overlay">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">Ajouter un aliment</div>
+        <button class="modal-close" id="closeModalBtn">✕</button>
+      </div>
+      <div class="field"><input type="text" id="foodSearch" placeholder="Rechercher un aliment..."></div>
+      <div id="foodResults"></div>
+      <div id="foodQtyWrap" class="hidden">
+        <div class="exo-block" id="foodPreview"></div>
+        <div class="field"><label>Quantité (g)</label><input type="number" id="foodQtyInput" value="100"></div>
+        <button class="btn" id="confirmFoodBtn">Ajouter</button>
+      </div>
+      <button type="button" class="btn secondary" id="customFoodBtn" style="margin-top:14px;">Créer un aliment personnalisé</button>
+    </div>
+  </div>`;
+  document.getElementById('closeModalBtn').onclick = closeModal;
+  document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+
+  let selectedFood = null;
+  const renderResults = (q='')=>{
+    const norm = s=> s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const nq = norm(q);
+    const list = foodDbAll().filter(f=> norm(f.name).includes(nq)).slice(0,25);
+    document.getElementById('foodResults').innerHTML = list.map(f=>
+      `<button type="button" class="picker-item" data-id="${f.id}">${f.name} <span class="sr-sub">${f.cal} kcal /100g</span></button>`).join('');
+    document.querySelectorAll('#foodResults .picker-item').forEach(btn=>{
+      btn.onclick = ()=>{
+        selectedFood = foodDbAll().find(f=>f.id===btn.dataset.id);
+        document.getElementById('foodQtyWrap').classList.remove('hidden');
+        updatePreview();
+      };
+    });
+  };
+  const updatePreview = ()=>{
+    if(!selectedFood) return;
+    const qty = parseFloat(document.getElementById('foodQtyInput').value)||0;
+    const ratio = qty/100;
+    document.getElementById('foodPreview').innerHTML = `
+      <div class="exo-block-name">${selectedFood.name} · ${qty}g</div>
+      <div class="exo-target">${Math.round(selectedFood.cal*ratio)} kcal · P ${Math.round(selectedFood.p*ratio)}g · G ${Math.round(selectedFood.c*ratio)}g · L ${Math.round(selectedFood.f*ratio)}g</div>`;
+  };
+  renderResults();
+  document.getElementById('foodSearch').addEventListener('input', e=> renderResults(e.target.value));
+  document.getElementById('foodQtyInput').addEventListener('input', updatePreview);
+  document.getElementById('confirmFoodBtn').onclick = ()=>{
+    if(!selectedFood) return;
+    const qty = parseFloat(document.getElementById('foodQtyInput').value)||0;
+    const ratio = qty/100;
+    state.nutrition.meals.push({
+      id: uid(), date: new Date().toISOString(), mealType,
+      foodId: selectedFood.id, name: selectedFood.name, qty,
+      calories: selectedFood.cal*ratio, protein: selectedFood.p*ratio, carbs: selectedFood.c*ratio, fat: selectedFood.f*ratio,
+    });
+    saveState();
+    awardXp(5);
+    closeModal();
+    toast('Aliment ajouté 🥗');
+    renderNutrition();
+  };
+  document.getElementById('customFoodBtn').onclick = ()=>{
+    root.innerHTML = `<div class="modal-overlay" id="overlay">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div class="modal-title">Aliment personnalisé</div>
+          <button class="modal-close" id="closeModalBtn">✕</button>
+        </div>
+        <div class="field"><label>Nom</label><input type="text" id="cfName"></div>
+        <div class="sr-sub" style="margin-bottom:10px;">Valeurs pour 100g</div>
+        <div class="row2">
+          <div class="field"><label>Calories</label><input type="number" id="cfCal"></div>
+          <div class="field"><label>Protéines (g)</label><input type="number" id="cfP"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Glucides (g)</label><input type="number" id="cfC"></div>
+          <div class="field"><label>Lipides (g)</label><input type="number" id="cfF"></div>
+        </div>
+        <button class="btn" id="saveCustomFoodBtn">Enregistrer l'aliment</button>
+      </div>
+    </div>`;
+    document.getElementById('closeModalBtn').onclick = closeModal;
+    document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+    document.getElementById('saveCustomFoodBtn').onclick = ()=>{
+      const name = document.getElementById('cfName').value.trim();
+      if(!name){ toast('Donne un nom à l\'aliment'); return; }
+      const food = {
+        id:'custom_'+uid(), name,
+        cal: parseFloat(document.getElementById('cfCal').value)||0,
+        p: parseFloat(document.getElementById('cfP').value)||0,
+        c: parseFloat(document.getElementById('cfC').value)||0,
+        f: parseFloat(document.getElementById('cfF').value)||0,
+      };
+      state.nutrition.customFoods.push(food);
+      saveState();
+      openFoodLogModal(mealType);
+    };
+  };
+}
+
+/* ============================================================
+   SUIVI PHYSIQUE (CORPS)
+   ============================================================ */
+function computeBmi(weightKg, heightCm){
+  if(!weightKg || !heightCm) return null;
+  const h = heightCm/100;
+  return weightKg/(h*h);
+}
+
+function renderCorps(){
+  const el = document.getElementById('santeContent');
+  const logs = [...state.bodyLogs].sort((a,b)=> new Date(b.date)-new Date(a.date));
+  const last = logs[0];
+  const bmi = last ? computeBmi(last.weightKg, state.settings.heightCm) : null;
+
+  const weightSeries = [...state.bodyLogs].sort((a,b)=> new Date(a.date)-new Date(b.date)).filter(l=>l.weightKg);
+
+  el.innerHTML = `
+    <div class="stat-card">
+      <div class="kpi-row">
+        <div class="kpi"><div class="kv">${last&&last.weightKg? last.weightKg+' kg' : '—'}</div><div class="kl">Poids actuel</div></div>
+        <div class="kpi"><div class="kv">${bmi? bmi.toFixed(1) : '—'}</div><div class="kl">IMC</div></div>
+        <div class="kpi"><div class="kv">${last&&last.bodyFatPct? last.bodyFatPct+'%' : '—'}</div><div class="kl">Masse grasse</div></div>
+      </div>
+    </div>
+    ${weightSeries.length>=2 ? `<div class="stat-card"><div class="stat-title">Évolution du poids (kg)</div>${lineChart(weightSeries.map(l=>l.weightKg), weightSeries.map(l=>fmtDate(l.date)), 'var(--accent)', 'kg')}</div>` : ''}
+    <button class="btn" id="addBodyLogBtn">+ Nouveau relevé</button>
+    <h3 class="section-title">Historique</h3>
+    <div class="history-list">
+      ${logs.length ? logs.map(l=>`
+        <div class="hist-item">
+          <div class="hist-top">
+            <div class="hist-title">${l.weightKg? l.weightKg+' kg' : 'Relevé'}</div>
+            <div class="hist-date">${fmtDate(l.date)}</div>
+          </div>
+          <div class="hist-detail">
+            ${[
+              l.bodyFatPct?`MG ${l.bodyFatPct}%`:null,
+              l.waist?`Taille ${l.waist}cm`:null,
+              l.chest?`Poitrine ${l.chest}cm`:null,
+              l.hips?`Hanches ${l.hips}cm`:null,
+              l.arms?`Bras ${l.arms}cm`:null,
+              l.thighs?`Cuisses ${l.thighs}cm`:null,
+            ].filter(Boolean).join(' · ') || 'Aucun détail'}
+          </div>
+          ${l.photo? `<img src="${l.photo}" class="body-photo-thumb">` : ''}
+        </div>`).join('') : `<div class="hist-empty">Aucun relevé pour l'instant.</div>`}
+    </div>
+  `;
+  document.getElementById('addBodyLogBtn').onclick = openBodyLogModal;
+}
+
+function compressImage(file, maxSize=500, quality=0.7){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const scale = Math.min(1, maxSize/Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width*scale;
+        canvas.height = img.height*scale;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function openBodyLogModal(){
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `<div class="modal-overlay" id="overlay">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">Nouveau relevé corporel</div>
+        <button class="modal-close" id="closeModalBtn">✕</button>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Poids (kg)</label><input type="number" step="0.1" id="bwWeight" value="${state.settings.weightKg||''}"></div>
+        <div class="field"><label>Masse grasse (%)</label><input type="number" step="0.1" id="bwFat"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Tour de taille (cm)</label><input type="number" id="bwWaist"></div>
+        <div class="field"><label>Tour de poitrine (cm)</label><input type="number" id="bwChest"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Tour de hanches (cm)</label><input type="number" id="bwHips"></div>
+        <div class="field"><label>Tour de bras (cm)</label><input type="number" id="bwArms"></div>
+      </div>
+      <div class="field"><label>Tour de cuisses (cm)</label><input type="number" id="bwThighs"></div>
+      <div class="field"><label>Photo (optionnel)</label><input type="file" accept="image/*" id="bwPhoto"></div>
+      <button class="btn" id="saveBodyLogBtn">Enregistrer</button>
+    </div>
+  </div>`;
+  document.getElementById('closeModalBtn').onclick = closeModal;
+  document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+  document.getElementById('saveBodyLogBtn').onclick = async ()=>{
+    const num = id=>{ const v = parseFloat(document.getElementById(id).value); return isNaN(v)?undefined:v; };
+    let photo;
+    const file = document.getElementById('bwPhoto').files[0];
+    if(file){ try{ photo = await compressImage(file); }catch(e){} }
+    const weightKg = num('bwWeight');
+    if(!weightKg && !document.getElementById('bwFat').value && !photo){ toast('Renseigne au moins le poids'); return; }
+    state.bodyLogs.push({
+      id: uid(), date: new Date().toISOString(),
+      weightKg, bodyFatPct: num('bwFat'), waist: num('bwWaist'), chest: num('bwChest'),
+      hips: num('bwHips'), arms: num('bwArms'), thighs: num('bwThighs'), photo,
+    });
+    if(weightKg) state.settings.weightKg = weightKg;
+    saveState();
+    awardXp(10);
+    closeModal();
+    toast('Relevé enregistré 📏');
+    refreshCurrentView();
+  };
+}
+
+/* ============================================================
+   SOMMEIL & RÉCUPÉRATION
+   ============================================================ */
+function computeRecoveryScore(){
+  const logs = [...state.sleepLogs].sort((a,b)=> new Date(b.date)-new Date(a.date));
+  const last = logs[0];
+  let score = 70;
+  if(last){
+    score += (last.quality-3)*8;
+    score += (last.durationH-7)*5;
+    score -= (last.soreness-1)*6;
+    score += (last.energy-3)*5;
+  }
+  const ratio = acwr();
+  if(ratio!=null){
+    if(ratio>1.5) score -= 20;
+    else if(ratio>1.3) score -= 10;
+    else if(ratio<0.8) score -= 5;
+  }
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+function recoveryLabel(score){
+  if(score>=80) return { text:'Excellente forme', cls:'good' };
+  if(score>=60) return { text:'Bonne récupération', cls:'good' };
+  if(score>=40) return { text:'Récupération moyenne', cls:'warn' };
+  return { text:'Fatigue élevée — repos conseillé', cls:'danger' };
+}
+
+function renderSommeil(){
+  const el = document.getElementById('santeContent');
+  const logs = [...state.sleepLogs].sort((a,b)=> new Date(b.date)-new Date(a.date));
+  const score = computeRecoveryScore();
+  const info = recoveryLabel(score);
+  const series = [...state.sleepLogs].sort((a,b)=> new Date(a.date)-new Date(b.date)).slice(-10);
+
+  el.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-title">Score de récupération</div>
+      <div class="recovery-score ${info.cls}">${score}<span>/100</span></div>
+      <div class="acwr-badge ${info.cls}">${info.text}</div>
+    </div>
+    ${series.length>=2 ? `<div class="stat-card"><div class="stat-title">Durée de sommeil (h)</div>${lineChart(series.map(l=>l.durationH), series.map(l=>fmtDate(l.date)), 'var(--muscu)', 'h')}</div>` : ''}
+    <button class="btn" id="addSleepLogBtn">+ Enregistrer une nuit</button>
+    <h3 class="section-title">Historique</h3>
+    <div class="history-list">
+      ${logs.length ? logs.map(l=>`
+        <div class="hist-item">
+          <div class="hist-top">
+            <div class="hist-title">${l.durationH}h de sommeil</div>
+            <div class="hist-date">${fmtDate(l.date)}</div>
+          </div>
+          <div class="hist-detail">Qualité ${'⭐'.repeat(l.quality)} · Courbatures ${'💥'.repeat(l.soreness)} · Énergie ${'⚡'.repeat(l.energy)}${l.notes? '<br>'+l.notes:''}</div>
+        </div>`).join('') : `<div class="hist-empty">Aucune nuit enregistrée pour l'instant.</div>`}
+    </div>
+  `;
+  document.getElementById('addSleepLogBtn').onclick = openSleepLogModal;
+}
+
+function ratingRowHtml(id, label){
+  return `<div class="field">
+    <label>${label}</label>
+    <div class="rpe-row" id="${id}Row">${[1,2,3,4,5].map(n=>`<button type="button" class="rpe-btn" data-v="${n}">${n}</button>`).join('')}</div>
+  </div>`;
+}
+function wireRatingRow(id, onChange){
+  let val = 0;
+  document.getElementById(id+'Row').querySelectorAll('.rpe-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      val = parseInt(btn.dataset.v);
+      document.getElementById(id+'Row').querySelectorAll('.rpe-btn').forEach(b=>b.classList.toggle('on', b===btn));
+      onChange(val);
+    };
+  });
+  return ()=>val;
+}
+
+function openSleepLogModal(){
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `<div class="modal-overlay" id="overlay">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">Enregistrer une nuit</div>
+        <button class="modal-close" id="closeModalBtn">✕</button>
+      </div>
+      <div class="field"><label>Durée de sommeil (h)</label><input type="number" step="0.1" id="slDuration" value="7.5"></div>
+      ${ratingRowHtml('slQuality', 'Qualité du sommeil')}
+      ${ratingRowHtml('slSoreness', 'Courbatures (1=aucune, 5=intenses)')}
+      ${ratingRowHtml('slEnergy', "Niveau d'énergie")}
+      <div class="field"><label>Notes (optionnel)</label><textarea id="slNotes"></textarea></div>
+      <button class="btn" id="saveSleepBtn">Enregistrer</button>
+    </div>
+  </div>`;
+  document.getElementById('closeModalBtn').onclick = closeModal;
+  document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+  const getQuality = wireRatingRow('slQuality', ()=>{});
+  const getSoreness = wireRatingRow('slSoreness', ()=>{});
+  const getEnergy = wireRatingRow('slEnergy', ()=>{});
+  document.getElementById('saveSleepBtn').onclick = ()=>{
+    const durationH = parseFloat(document.getElementById('slDuration').value)||0;
+    const quality = getQuality()||3, soreness = getSoreness()||1, energy = getEnergy()||3;
+    state.sleepLogs.push({
+      id: uid(), date: new Date().toISOString(), durationH, quality, soreness, energy,
+      notes: document.getElementById('slNotes').value.trim(),
+    });
+    saveState();
+    awardXp(5);
+    closeModal();
+    toast('Nuit enregistrée 😴');
+    refreshCurrentView();
+  };
+}
+
+/* ============================================================
+   DASHBOARD — cartes de score (Accueil)
+   ============================================================ */
+function renderDashboardScores(){
+  const el = document.getElementById('dashboardScores');
+  const recovery = computeRecoveryScore();
+  const recInfo = recoveryLabel(recovery);
+  const ratio = acwr();
+  const totals = macroTotals(mealsForDate(todayStr()));
+  const lastSleep = [...state.sleepLogs].sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
+  const xp = state.gamification.xp;
+  const level = levelFromXp(xp);
+  const xpIntoLevel = xp - xpForLevel(level);
+  const xpForNext = xpForLevel(level+1) - xpForLevel(level);
+
+  el.innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card ${recInfo.cls}">
+        <div class="dash-val">${recovery}</div>
+        <div class="dash-label">Récupération</div>
+      </div>
+      <div class="dash-card ${acwrLabel(ratio).cls}">
+        <div class="dash-val">${ratio!=null? ratio.toFixed(1) : '—'}</div>
+        <div class="dash-label">Charge (ACWR)</div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-val">${Math.round(totals.calories)}</div>
+        <div class="dash-label">kcal aujourd'hui</div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-val">${lastSleep? lastSleep.durationH+'h' : '—'}</div>
+        <div class="dash-label">Sommeil dernière nuit</div>
+      </div>
+    </div>
+    <div class="xp-row">
+      <div class="xp-level">Niveau ${level} 🔥 ${state.gamification.streak}j</div>
+      <div class="xp-track"><div class="xp-fill" style="width:${Math.min(100, Math.round(xpIntoLevel/xpForNext*100))}%"></div></div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   COACH IA (Claude)
+   ============================================================ */
+function buildAiSystemPrompt(){
+  const s = state.settings;
+  const recentSessions = state.sessions.slice(0,5).map(x=>{
+    if(x.type==='muscu') return `- ${fmtDate(x.date)} musculation (${x.label}), ressenti ${x.difficulty}/5`;
+    return `- ${fmtDate(x.date)} course ${x.distance_km}km en ${x.duration_min}min (${fmtPace(x.pace)}), ressenti ${x.difficulty}/5`;
+  }).join('\n') || 'Aucune séance enregistrée.';
+  const recovery = computeRecoveryScore();
+  return `Tu es un coach sportif expert (musculation + course à pied), intégré à l'app CoachPerso. Réponds en français, de façon concise, chaleureuse et concrète.
+Profil utilisateur : niveau ${s.level}, objectif ${s.goal}, ${s.muscuDaysPerWeek} séances muscu/semaine, ${s.courseDaysPerWeek} sorties course/semaine, objectif distance ${s.runTargetDistance}km.
+Score de récupération actuel : ${recovery}/100.
+5 dernières séances :
+${recentSessions}
+Donne des conseils personnalisés basés sur ces données réelles. Si une info te manque, demande-la plutôt que d'inventer.`;
+}
+
+function openAiChat(){
+  const root = document.getElementById('modalRoot');
+  const apiKey = state.settings.aiApiKey;
+  root.innerHTML = `<div class="modal-overlay" id="overlay">
+    <div class="modal-sheet ai-sheet">
+      <div class="modal-header">
+        <div class="modal-title">💬 Coach IA</div>
+        <button class="modal-close" id="closeModalBtn">✕</button>
+      </div>
+      ${!apiKey ? `
+        <div class="empty-stat">Ajoute ta clé API Anthropic dans Réglages pour activer le coach IA.</div>
+        <button class="btn secondary" id="goToSettingsBtn" style="margin-top:10px;">Aller aux réglages</button>
+      ` : `
+        <div class="ai-messages" id="aiMessages"></div>
+        <div class="ai-input-row">
+          <input type="text" id="aiInput" placeholder="Pose ta question au coach...">
+          <button class="btn" id="aiSendBtn" style="margin-top:0; width:auto; padding:12px 18px;">Envoyer</button>
+        </div>
+      `}
+    </div>
+  </div>`;
+  document.getElementById('closeModalBtn').onclick = closeModal;
+  document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+  if(!apiKey){
+    document.getElementById('goToSettingsBtn').onclick = ()=>{ closeModal(); switchView('reglages'); };
+    return;
+  }
+  renderAiMessages();
+  document.getElementById('aiSendBtn').onclick = sendAiMessage;
+  document.getElementById('aiInput').addEventListener('keydown', e=>{ if(e.key==='Enter') sendAiMessage(); });
+}
+
+function renderAiMessages(){
+  const wrap = document.getElementById('aiMessages');
+  if(!wrap) return;
+  wrap.innerHTML = state.aiChatHistory.map(m=>
+    `<div class="ai-bubble ${m.role}">${m.content}</div>`).join('') || `<div class="empty-stat">Pose ta première question à ton coach !</div>`;
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+async function sendAiMessage(){
+  const input = document.getElementById('aiInput');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  state.aiChatHistory.push({ role:'user', content:text });
+  renderAiMessages();
+  const wrap = document.getElementById('aiMessages');
+  wrap.insertAdjacentHTML('beforeend', `<div class="ai-bubble assistant loading" id="aiLoadingBubble">…</div>`);
+  wrap.scrollTop = wrap.scrollHeight;
+
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': state.settings.aiApiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
+      },
+      body: JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:800,
+        system: buildAiSystemPrompt(),
+        messages: state.aiChatHistory.map(m=>({role:m.role, content:m.content})),
+      }),
+    });
+    const data = await res.json();
+    document.getElementById('aiLoadingBubble')?.remove();
+    if(!res.ok){
+      const errMsg = data?.error?.message || 'Erreur de connexion à l\'IA';
+      state.aiChatHistory.push({ role:'assistant', content:`⚠️ ${errMsg}` });
+    } else {
+      const reply = data.content?.map(c=>c.text).join('') || '(réponse vide)';
+      state.aiChatHistory.push({ role:'assistant', content: reply });
+    }
+  }catch(e){
+    document.getElementById('aiLoadingBubble')?.remove();
+    state.aiChatHistory.push({ role:'assistant', content:'⚠️ Impossible de contacter l\'IA. Vérifie ta connexion et ta clé API.' });
+  }
+  saveState();
+  renderAiMessages();
+}
+
+/* ============================================================
    ONBOARDING
    ============================================================ */
 const OB_STEPS = [
@@ -1383,7 +2317,9 @@ function finishOnboarding(){
    NAVIGATION / INIT
    ============================================================ */
 let currentView='accueil';
-const TITLES = { accueil:"Aujourd'hui", historique:'Historique', stats:'Statistiques', reglages:'Réglages' };
+let entTab='historique';
+let santeTab='nutrition';
+const TITLES = { accueil:"Aujourd'hui", entrainement:'Entraînement', sante:'Santé', reglages:'Réglages' };
 
 function switchView(view){
   currentView = view;
@@ -1394,11 +2330,23 @@ function switchView(view){
 }
 function refreshCurrentView(){
   if(currentView==='accueil') renderAccueil();
-  else if(currentView==='historique') renderHistorique();
-  else if(currentView==='stats') renderStats();
+  else if(currentView==='entrainement') renderEntrainement();
+  else if(currentView==='sante') renderSante();
   else if(currentView==='reglages') renderReglages();
 }
 function renderAll(){ refreshCurrentView(); }
+
+function renderEntrainement(){
+  document.getElementById('entHistorique').classList.toggle('hidden', entTab!=='historique');
+  document.getElementById('entStats').classList.toggle('hidden', entTab!=='stats');
+  if(entTab==='historique') renderHistorique(); else renderStats();
+}
+
+function renderSante(){
+  if(santeTab==='nutrition') renderNutrition();
+  else if(santeTab==='corps') renderCorps();
+  else renderSommeil();
+}
 
 function init(){
   if(window.__coachPersoInit) return;
@@ -1407,8 +2355,15 @@ function init(){
     btn.onclick = ()=> switchView(btn.dataset.view);
   });
   document.getElementById('settingsBtn').onclick = ()=> switchView('reglages');
+  document.getElementById('aiCoachBtn').onclick = openAiChat;
   document.getElementById('fabLog').onclick = openFreeLogChooser;
 
+  document.getElementById('entrainementTabs').addEventListener('click', e=>{
+    const chip = e.target.closest('.chip'); if(!chip) return;
+    entTab = chip.dataset.etab;
+    document.querySelectorAll('#entrainementTabs .chip').forEach(c=>c.classList.toggle('active', c===chip));
+    renderEntrainement();
+  });
   document.getElementById('histFilters').addEventListener('click', e=>{
     const chip = e.target.closest('.chip'); if(!chip) return;
     histFilter = chip.dataset.filter;
@@ -1420,6 +2375,12 @@ function init(){
     statTab = chip.dataset.stat;
     document.querySelectorAll('#statsTabs .chip').forEach(c=>c.classList.toggle('active', c===chip));
     renderStats();
+  });
+  document.getElementById('santeTabs').addEventListener('click', e=>{
+    const chip = e.target.closest('.chip'); if(!chip) return;
+    santeTab = chip.dataset.sante;
+    document.querySelectorAll('#santeTabs .chip').forEach(c=>c.classList.toggle('active', c===chip));
+    renderSante();
   });
 
   if(!state.settings.onboarded){

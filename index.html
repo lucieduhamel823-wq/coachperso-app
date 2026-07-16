@@ -20,7 +20,10 @@
   <!-- HEADER -->
   <header class="topbar">
     <div class="topbar-title" id="topbarTitle">Aujourd'hui</div>
-    <button class="icon-btn" id="settingsBtn" aria-label="Réglages">⚙️</button>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="aiCoachBtn" aria-label="Coach IA">💬</button>
+      <button class="icon-btn" id="settingsBtn" aria-label="Réglages">⚙️</button>
+    </div>
   </header>
 
   <!-- MAIN VIEWS -->
@@ -28,30 +31,48 @@
 
     <!-- ACCUEIL -->
     <section class="view" id="view-accueil">
+      <div id="dashboardScores"></div>
       <div id="weekProgress" class="card week-progress"></div>
       <div id="nextSessionCard"></div>
       <h3 class="section-title">À suivre ensuite</h3>
       <div id="upcomingList" class="upcoming-list"></div>
     </section>
 
-    <!-- HISTORIQUE -->
-    <section class="view hidden" id="view-historique">
-      <div class="filter-row" id="histFilters">
-        <button class="chip active" data-filter="all">Tout</button>
-        <button class="chip" data-filter="muscu">Muscu</button>
-        <button class="chip" data-filter="course">Course</button>
+    <!-- ENTRAINEMENT (historique + stats) -->
+    <section class="view hidden" id="view-entrainement">
+      <div class="filter-row" id="entrainementTabs">
+        <button class="chip active" data-etab="historique">Historique</button>
+        <button class="chip" data-etab="stats">Statistiques</button>
       </div>
-      <div id="historyList" class="history-list"></div>
+
+      <div id="entHistorique">
+        <div class="filter-row" id="histFilters">
+          <button class="chip active" data-filter="all">Tout</button>
+          <button class="chip" data-filter="muscu">Muscu</button>
+          <button class="chip" data-filter="course">Course</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </div>
+
+      <div id="entStats" class="hidden">
+        <div class="stats-tabs" id="statsTabs">
+          <button class="chip active" data-stat="volume">Volume muscu</button>
+          <button class="chip" data-stat="exo">Progression exo</button>
+          <button class="chip" data-stat="course">Course</button>
+          <button class="chip" data-stat="records">Records & VMA</button>
+        </div>
+        <div id="statsContent"></div>
+      </div>
     </section>
 
-    <!-- STATS -->
-    <section class="view hidden" id="view-stats">
-      <div class="stats-tabs" id="statsTabs">
-        <button class="chip active" data-stat="volume">Volume muscu</button>
-        <button class="chip" data-stat="exo">Progression exo</button>
-        <button class="chip" data-stat="course">Course</button>
+    <!-- SANTE (nutrition + corps + sommeil) -->
+    <section class="view hidden" id="view-sante">
+      <div class="filter-row" id="santeTabs">
+        <button class="chip active" data-sante="nutrition">Nutrition</button>
+        <button class="chip" data-sante="corps">Corps</button>
+        <button class="chip" data-sante="sommeil">Sommeil</button>
       </div>
-      <div id="statsContent"></div>
+      <div id="santeContent"></div>
     </section>
 
     <!-- REGLAGES -->
@@ -66,12 +87,12 @@
     <button class="navbtn active" data-view="accueil">
       <span class="navicon">🏠</span><span>Accueil</span>
     </button>
-    <button class="navbtn" data-view="historique">
-      <span class="navicon">📜</span><span>Historique</span>
+    <button class="navbtn" data-view="entrainement">
+      <span class="navicon">📊</span><span>Entraînement</span>
     </button>
-    <button class="fab" id="fabLog" aria-label="Ajouter une séance">+</button>
-    <button class="navbtn" data-view="stats">
-      <span class="navicon">📈</span><span>Stats</span>
+    <button class="fab" id="fabLog" aria-label="Ajouter">+</button>
+    <button class="navbtn" data-view="sante">
+      <span class="navicon">❤️</span><span>Santé</span>
     </button>
     <button class="navbtn" data-view="reglages">
       <span class="navicon">⚙️</span><span>Réglages</span>
