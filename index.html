@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>CoachPerso</title>
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CoachPerso">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <header class="topbar">
+    <div class="topbar-title" id="topbarTitle">Aujourd'hui</div>
+    <button class="icon-btn" id="settingsBtn" aria-label="Réglages">⚙️</button>
+  </header>
+
+  <!-- MAIN VIEWS -->
+  <main id="views">
+
+    <!-- ACCUEIL -->
+    <section class="view" id="view-accueil">
+      <div id="weekProgress" class="card week-progress"></div>
+      <div id="nextSessionCard"></div>
+      <h3 class="section-title">À suivre ensuite</h3>
+      <div id="upcomingList" class="upcoming-list"></div>
+    </section>
+
+    <!-- HISTORIQUE -->
+    <section class="view hidden" id="view-historique">
+      <div class="filter-row" id="histFilters">
+        <button class="chip active" data-filter="all">Tout</button>
+        <button class="chip" data-filter="muscu">Muscu</button>
+        <button class="chip" data-filter="course">Course</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </section>
+
+    <!-- STATS -->
+    <section class="view hidden" id="view-stats">
+      <div class="stats-tabs" id="statsTabs">
+        <button class="chip active" data-stat="volume">Volume muscu</button>
+        <button class="chip" data-stat="exo">Progression exo</button>
+        <button class="chip" data-stat="course">Course</button>
+      </div>
+      <div id="statsContent"></div>
+    </section>
+
+    <!-- REGLAGES -->
+    <section class="view hidden" id="view-reglages">
+      <div id="reglagesContent"></div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottomnav">
+    <button class="navbtn active" data-view="accueil">
+      <span class="navicon">🏠</span><span>Accueil</span>
+    </button>
+    <button class="navbtn" data-view="historique">
+      <span class="navicon">📜</span><span>Historique</span>
+    </button>
+    <button class="fab" id="fabLog" aria-label="Ajouter une séance">+</button>
+    <button class="navbtn" data-view="stats">
+      <span class="navicon">📈</span><span>Stats</span>
+    </button>
+    <button class="navbtn" data-view="reglages">
+      <span class="navicon">⚙️</span><span>Réglages</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- MODAL ROOT -->
+<div id="modalRoot"></div>
+
+<script src="app.js" defer></script>
+</body>
+</html>
