@@ -1,35 +1,58 @@
 :root{
-  --bg:#f4f5f7;
-  --card:#ffffff;
-  --text:#12131a;
-  --muted:#6b7280;
-  --border:#e5e7eb;
-  --accent:#ff5a36;
-  --accent-soft:#ffe4db;
-  --muscu:#5b6bff;
-  --muscu-soft:#e7e9ff;
-  --course:#12b886;
-  --course-soft:#d8f7ec;
-  --danger:#e0353d;
+  /* Palette solaire — déclinaisons de jaune uniquement (+ terracotta minimal pour alerte) */
+  --bg:#FFFBF2;           /* blanc cassé / ivoire */
+  --card:#FFFFFF;
+  --text:#2B2415;         /* anthracite chaud */
+  --muted:#8A7A5C;        /* beige-brun doux */
+  --border:#F0E2BE;       /* champagne clair */
+  --accent:#F5B700;       /* jaune doré / safran — couleur signature */
+  --accent-soft:#FFF1CC;  /* jaune crème */
+  --muscu:#C98A1F;        /* miel foncé / ambre */
+  --muscu-soft:#FBEAC9;
+  --course:#FFC93C;       /* jaune soleil */
+  --course-soft:#FFF3D2;
+  --good:#C98A1F;
+  --good-soft:#FBEAC9;
+  --warn:#E08A00;
+  --warn-soft:#FFEAB8;
+  --danger:#D9542D;       /* terracotta chaud — seule exception, réservée aux alertes */
+  --danger-soft:#FBE3D6;
   --radius:16px;
   --safe-top:env(safe-area-inset-top);
   --safe-bottom:env(safe-area-inset-bottom);
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#0f1115;
-    --card:#1a1c22;
-    --text:#f3f4f6;
-    --muted:#9aa0ac;
-    --border:#2a2d35;
-    --accent:#ff6b47;
-    --accent-soft:#3a231c;
-    --muscu:#7c88ff;
-    --muscu-soft:#242552;
-    --course:#2fe0a8;
-    --course-soft:#123a30;
-    --danger:#ff5a5f;
+    --bg:#211a0d;
+    --card:#2E2513;
+    --text:#FBF1D8;
+    --muted:#C9B387;
+    --border:#453619;
+    --accent:#FFC940;
+    --accent-soft:#4A3813;
+    --muscu:#E0A83E;
+    --muscu-soft:#3D2E10;
+    --course:#FFD874;
+    --course-soft:#40350F;
+    --good:#E0A83E;
+    --good-soft:#3D2E10;
+    --warn:#F0B429;
+    --warn-soft:#453310;
+    --danger:#FF7A50;
+    --danger-soft:#452114;
   }
+}
+:root[data-theme="dark"]{
+  --bg:#211a0d; --card:#2E2513; --text:#FBF1D8; --muted:#C9B387; --border:#453619;
+  --accent:#FFC940; --accent-soft:#4A3813; --muscu:#E0A83E; --muscu-soft:#3D2E10;
+  --course:#FFD874; --course-soft:#40350F; --good:#E0A83E; --good-soft:#3D2E10;
+  --warn:#F0B429; --warn-soft:#453310; --danger:#FF7A50; --danger-soft:#452114;
+}
+:root[data-theme="light"]{
+  --bg:#FFFBF2; --card:#FFFFFF; --text:#2B2415; --muted:#8A7A5C; --border:#F0E2BE;
+  --accent:#F5B700; --accent-soft:#FFF1CC; --muscu:#C98A1F; --muscu-soft:#FBEAC9;
+  --course:#FFC93C; --course-soft:#FFF3D2; --good:#C98A1F; --good-soft:#FBEAC9;
+  --warn:#E08A00; --warn-soft:#FFEAB8; --danger:#D9542D; --danger-soft:#FBE3D6;
 }
 
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; min-width:0;}
@@ -47,7 +70,7 @@ body{
   display:flex;
   flex-direction:column;
 }
-button{font-family:inherit;}
+button{font-family:inherit; color:inherit;}
 
 .topbar{
   position:sticky; top:0; z-index:20;
@@ -101,8 +124,8 @@ main#views{
   border-radius:20px; padding:20px; margin-bottom:14px;
   color:#fff; position:relative; overflow:hidden;
 }
-.hero-card.muscu{background:linear-gradient(135deg,#5b6bff,#8a5bff);}
-.hero-card.course{background:linear-gradient(135deg,#12b886,#0a8f6a);}
+.hero-card.muscu{background:linear-gradient(135deg,#C98A1F,#7A4E0A);}
+.hero-card.course{background:linear-gradient(135deg,#FFC93C,#C97A00);}
 .hero-card .hc-type{font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; opacity:.85;}
 .hero-card .hc-title{font-size:24px; font-weight:800; margin:6px 0 10px;}
 .hero-card .hc-detail{font-size:14px; opacity:.9; line-height:1.5;}
@@ -111,6 +134,7 @@ main#views{
   color:#fff; padding:11px 18px; border-radius:12px; font-weight:700; font-size:15px;
   backdrop-filter:blur(6px);
 }
+.hc-weather{font-size:12.5px; font-weight:600; opacity:.9; margin-top:10px;}
 .empty-hero{
   text-align:center; padding:34px 18px; color:var(--muted);
 }
@@ -322,7 +346,7 @@ svg.chart{width:100%; height:auto; overflow:visible;}
 
 /* Suivi GPS en direct */
 .tracker-overlay{
-  position:fixed; inset:0; z-index:250; background:linear-gradient(160deg, var(--course), #0a6e52);
+  position:fixed; inset:0; z-index:250; background:linear-gradient(160deg, #E0932F, #7A4E0A);
   color:#fff; display:flex; flex-direction:column; align-items:center;
   padding:calc(var(--safe-top) + 14px) 20px calc(20px + var(--safe-bottom));
 }
@@ -343,22 +367,26 @@ svg.chart{width:100%; height:auto; overflow:visible;}
   flex:1; padding:16px; border-radius:16px; border:none; font-weight:800; font-size:15.5px;
 }
 .tracker-btn.secondary{background:rgba(255,255,255,.18); color:#fff; border:1px solid rgba(255,255,255,.35);}
-.tracker-btn.stop{background:#fff; color:#0a6e52;}
+.tracker-btn.stop{background:#fff; color:#8C5B0F;}
 
 /* Dashboard score cards */
+.coach-msg{
+  background:var(--accent-soft); border:1px solid var(--accent); border-radius:14px; padding:12px 14px;
+  font-size:13.5px; font-weight:600; line-height:1.5; margin-bottom:10px;
+}
 .dash-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;}
 .dash-card{
   background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; text-align:center;
 }
-.dash-card.good{border-color:var(--course); background:var(--course-soft);}
-.dash-card.warn{border-color:#e0a336; background:#3a2e1c;}
-.dash-card.danger{border-color:var(--danger); background:var(--accent-soft);}
+.dash-card.good{border-color:var(--good); background:var(--good-soft);}
+.dash-card.warn{border-color:var(--warn); background:var(--warn-soft);}
+.dash-card.danger{border-color:var(--danger); background:var(--danger-soft);}
 .dash-val{font-size:24px; font-weight:800;}
 .dash-label{font-size:11.5px; color:var(--muted); font-weight:600; margin-top:2px;}
 .xp-row{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px 14px; margin-bottom:14px;}
 .xp-level{font-size:13px; font-weight:700; margin-bottom:8px;}
 .xp-track{height:8px; border-radius:4px; background:var(--bg); overflow:hidden;}
-.xp-fill{height:100%; background:linear-gradient(90deg, var(--accent), #ffb347); border-radius:4px;}
+.xp-fill{height:100%; background:linear-gradient(90deg, var(--accent), var(--course)); border-radius:4px;}
 
 /* Badges */
 .badge-grid{display:flex; flex-wrap:wrap; gap:8px; justify-content:center;}
@@ -373,13 +401,13 @@ svg.chart{width:100%; height:auto; overflow:visible;}
   display:inline-block; padding:8px 14px; border-radius:999px; font-size:13px; font-weight:700;
   background:var(--bg); border:1px solid var(--border);
 }
-.acwr-badge.good{background:var(--course-soft); color:var(--course); border-color:var(--course);}
-.acwr-badge.warn{background:#3a2e1c; color:#e0a336; border-color:#e0a336;}
-.acwr-badge.danger{background:var(--accent-soft); color:var(--danger); border-color:var(--danger);}
+.acwr-badge.good{background:var(--good-soft); color:var(--good); border-color:var(--good);}
+.acwr-badge.warn{background:var(--warn-soft); color:var(--warn); border-color:var(--warn);}
+.acwr-badge.danger{background:var(--danger-soft); color:var(--danger); border-color:var(--danger);}
 .recovery-score{font-size:44px; font-weight:800; margin:6px 0 10px;}
 .recovery-score span{font-size:18px; color:var(--muted); font-weight:600;}
-.recovery-score.good{color:var(--course);}
-.recovery-score.warn{color:#e0a336;}
+.recovery-score.good{color:var(--good);}
+.recovery-score.warn{color:var(--warn);}
 .recovery-score.danger{color:var(--danger);}
 
 /* Nutrition */

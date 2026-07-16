@@ -267,22 +267,37 @@ function weightedTargetsFor(exerciseId){
   }
   // sinon 'bodyweight' classique : on garde reps = goalCfg.reps
 
+  let reason = 'Charge de départ suggérée selon ton niveau.';
+  const recovery = computeRecoveryScore();
+  const ratio = acwr();
+  const lowRecovery = recovery < 40;
+  const highLoad = ratio!=null && ratio>1.5;
+
   if(past.length){
     const last = past[0];
     const targetReps = last.targetReps || reps;
     const achieved = (last.sets||[]).length ? (last.sets||[]).every(s=>(s.reps||0) >= targetReps) : false;
-    if(exo.kind==='weighted'){
+
+    if((lowRecovery || highLoad) && achieved){
+      reason = lowRecovery
+        ? `Charge maintenue : ton score de récupération (${recovery}/100) est bas, mieux vaut consolider avant de progresser.`
+        : `Charge maintenue : ta charge d'entraînement récente est élevée (ACWR ${ratio.toFixed(1)}), on évite d'en rajouter.`;
+      if(exo.kind==='weighted') weight = last.weightUsed ?? weight;
+      reps = targetReps;
+    } else if(exo.kind==='weighted'){
       weight = last.weightUsed ?? weight;
-      if(achieved && last.difficulty<=3) weight = Math.round((weight+2.5)*2)/2;
-      else if(!achieved || last.difficulty>=5) weight = Math.max(0, Math.round((weight-2.5)*2)/2);
+      if(achieved && last.difficulty<=3){ weight = Math.round((weight+2.5)*2)/2; reason = `Poids augmenté à ${weight}kg : séries précédentes réussies avec une difficulté modérée (${last.difficulty}/5).`; }
+      else if(!achieved || last.difficulty>=5){ weight = Math.max(0, Math.round((weight-2.5)*2)/2); reason = !achieved ? 'Poids réduit : les répétitions cibles n\'avaient pas été atteintes la dernière fois.' : 'Poids réduit : la séance précédente était très difficile (ressenti 5/5).'; }
+      else reason = 'Charge stable : tu es dans une bonne zone d\'effort (ressenti 4/5).';
       reps = targetReps;
     } else {
       reps = last.targetReps || reps;
-      if(achieved && last.difficulty<=3) reps += (exo.kind==='core'?5:1);
-      else if(!achieved || last.difficulty>=5) reps = Math.max(exo.kind==='core'?10:3, reps-1);
+      if(achieved && last.difficulty<=3){ reps += (exo.kind==='core'?5:1); reason = `Objectif augmenté à ${reps}${exo.kind==='core'?'s':' reps'} : bien réussi la dernière fois.`; }
+      else if(!achieved || last.difficulty>=5){ reps = Math.max(exo.kind==='core'?10:3, reps-1); reason = 'Objectif réduit pour rester sur une progression réaliste.'; }
+      else reason = 'Objectif stable : bon niveau d\'effort la dernière fois.';
     }
   }
-  return { sets, reps, weight, name: exo.name, exerciseId };
+  return { sets, reps, weight, name: exo.name, exerciseId, reason };
 }
 
 function buildMuscuSession(dayIndex){
@@ -308,6 +323,7 @@ function buildCourseSession(){
     status:'pending',
     targetDistance: Math.round(rp.targetDistance*10)/10,
     targetPace: rp.targetPace,
+    reason: rp.reason || 'Cible de départ selon ton objectif.',
   };
 }
 
@@ -353,18 +369,33 @@ function adaptRunProgress(logged){
   const distRatio = logged.distance_km / target;
   const diff = logged.difficulty;
   let { targetDistance, targetPace } = state.runProgress;
+  let reason;
+
+  const recovery = computeRecoveryScore();
+  const ratio = acwr();
+  const shouldHoldBack = recovery < 40 || (ratio!=null && ratio>1.5);
 
   if(distRatio >= 0.95 && diff<=3){
-    targetDistance = Math.round((target*1.1)*10)/10;
-    if(logged.pace <= targetPace) targetPace = Math.max(3.5, targetPace - 1/6); // -10s/km
+    if(shouldHoldBack){
+      reason = recovery < 40
+        ? `Distance maintenue : ta récupération (${recovery}/100) est basse malgré une bonne dernière sortie.`
+        : `Distance maintenue : ta charge d'entraînement récente est élevée (ACWR ${ratio.toFixed(1)}).`;
+    } else {
+      targetDistance = Math.round((target*1.1)*10)/10;
+      reason = `Distance augmentée : objectif précédent atteint avec un ressenti confortable (${diff}/5).`;
+      if(logged.pace <= targetPace){ targetPace = Math.max(3.5, targetPace - 1/6); reason += ' Allure resserrée aussi.'; }
+    }
   } else if(diff>=4 || distRatio < 0.8){
     targetDistance = Math.max(1.5, Math.round((target*0.9)*10)/10);
-    targetPace = targetPace + 1/6; // +10s/km plus facile
+    targetPace = targetPace + 1/6;
+    reason = diff>=4 ? `Distance réduite : la sortie précédente était difficile (ressenti ${diff}/5).` : "Distance réduite : l'objectif précédent n'a pas été complété.";
+  } else {
+    reason = 'Cible stable : bon équilibre entre effort et récupération.';
   }
   // rapprocher progressivement de l'objectif si en dessous
   const goalDist = state.settings.runTargetDistance;
   if(goalDist && targetDistance > goalDist) targetDistance = goalDist;
-  state.runProgress = { targetDistance, targetPace };
+  state.runProgress = { targetDistance, targetPace, reason };
 }
 
 /* ============================================================
@@ -414,6 +445,46 @@ function renderWeekProgress(){
   `;
 }
 
+/* ---------------- Météo (Open-Meteo, gratuit, sans clé) ---------------- */
+let weatherCache = null; // { data, fetchedAt }
+function fetchWeather(){
+  return new Promise((resolve)=>{
+    if(weatherCache && Date.now()-weatherCache.fetchedAt < 30*60000){ resolve(weatherCache.data); return; }
+    if(!('geolocation' in navigator)){ resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      try{
+        const { latitude, longitude } = pos.coords;
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,precipitation,weather_code,wind_speed_10m`);
+        const json = await res.json();
+        const data = json.current;
+        weatherCache = { data, fetchedAt: Date.now() };
+        resolve(data);
+      }catch(e){ resolve(null); }
+    }, ()=> resolve(null), { timeout:6000, maximumAge:1800000 });
+  });
+}
+function weatherIcon(code){
+  if(code===0) return '☀️';
+  if(code<=3) return '⛅';
+  if(code<=48) return '🌫️';
+  if(code<=67) return '🌧️';
+  if(code<=77) return '🌨️';
+  if(code<=82) return '🌦️';
+  if(code>=95) return '⛈️';
+  return '🌡️';
+}
+function weatherAdvice(w){
+  if(!w) return null;
+  const t = w.temperature_2m;
+  const bits = [];
+  if(t>=28) bits.push("chaleur importante — hydrate-toi bien et réduis l'intensité");
+  else if(t<=2) bits.push('température très basse — échauffe-toi davantage et couvre les extrémités');
+  if(w.precipitation>0.3) bits.push('pluie prévue');
+  if(w.wind_speed_10m>=30) bits.push('vent fort');
+  if(!bits.length) return null;
+  return bits.join(' · ');
+}
+
 function renderNextSession(){
   const el = document.getElementById('nextSessionCard');
   const next = state.plan.find(p=>p.status==='pending');
@@ -429,11 +500,13 @@ function renderNextSession(){
         : `${e.sets}×${e.reps} reps`;
       return `${e.name} — ${detailStr}`;
     }).join('<br>');
+    const repReason = (next.exercises.find(e=>e.reason && !e.reason.startsWith('Charge de départ')) || next.exercises[0]||{}).reason;
     el.innerHTML = `
       <div class="hero-card muscu">
         <div class="hc-type">Musculation · ${next.label}</div>
         <div class="hc-title">Prochaine séance</div>
         <div class="hc-detail">${detail}</div>
+        ${repReason ? `<div class="hc-weather">🧠 ${repReason}</div>` : ''}
         <button class="hc-btn" id="startSessionBtn">Commencer la séance</button>
       </div>`;
   } else {
@@ -442,8 +515,16 @@ function renderNextSession(){
         <div class="hc-type">Course à pied</div>
         <div class="hc-title">Prochaine sortie</div>
         <div class="hc-detail">Distance cible : ${next.targetDistance} km<br>Allure cible : ${fmtPace(next.targetPace)}</div>
+        ${next.reason ? `<div class="hc-weather">🧠 ${next.reason}</div>` : ''}
+        <div id="weatherAdvice"></div>
         <button class="hc-btn" id="startSessionBtn">Commencer la sortie</button>
       </div>`;
+    fetchWeather().then(w=>{
+      const slot = document.getElementById('weatherAdvice');
+      if(!slot || !w) return;
+      const advice = weatherAdvice(w);
+      slot.innerHTML = `<div class="hc-weather">${weatherIcon(w.weather_code)} ${Math.round(w.temperature_2m)}°C${advice? ' — '+advice : ''}</div>`;
+    });
   }
   document.getElementById('startSessionBtn').onclick = ()=>{
     if(next.type==='muscu') openLogModal('muscu', next);
@@ -528,6 +609,7 @@ function renderStats(){
   if(statTab==='volume') el.innerHTML = statVolumeHtml();
   else if(statTab==='exo') el.innerHTML = statExoHtml();
   else if(statTab==='records') el.innerHTML = statRecordsHtml();
+  else if(statTab==='insights') el.innerHTML = statInsightsHtml();
   else el.innerHTML = statCourseHtml();
   if(statTab==='exo') wireExoSelect();
 }
@@ -1515,6 +1597,125 @@ function statRecordsHtml(){
 }
 
 /* ============================================================
+   INSIGHTS — analyse statistique des données réelles de l'utilisateur
+   (pas de ML/IA payante : uniquement des stats calculées localement,
+   qui deviennent plus fiables au fil de l'usage)
+   ============================================================ */
+function insightBestTimeOfDay(){
+  const buckets = { matin:[], 'après-midi':[], soir:[] };
+  state.sessions.forEach(s=>{
+    const h = new Date(s.date).getHours();
+    const key = h<12 ? 'matin' : h<18 ? 'après-midi' : 'soir';
+    buckets[key].push(s.difficulty||3);
+  });
+  const entries = Object.entries(buckets).filter(([,v])=>v.length>=3);
+  if(entries.length<2) return null;
+  const avg = arr=> arr.reduce((a,b)=>a+b,0)/arr.length;
+  const ranked = entries.map(([k,v])=>({ periode:k, count:v.length, avgDifficulty:avg(v) })).sort((a,b)=>a.avgDifficulty-b.avgDifficulty);
+  return ranked;
+}
+
+function insightBestExercises(){
+  const weighted = state.exercises.filter(e=>e.kind==='weighted');
+  const rows = weighted.map(exo=>{
+    const hist = state.sessions.filter(s=>s.type==='muscu')
+      .flatMap(s=> s.exercises.filter(e=>e.exerciseId===exo.id).map(e=>({ date:s.date, w:Math.max(0,...(e.sets||[]).map(st=>st.weight||0)) })))
+      .sort((a,b)=> new Date(a.date)-new Date(b.date));
+    if(hist.length<3) return null;
+    const first = hist[0], last = hist[hist.length-1];
+    const weeks = Math.max(1, (new Date(last.date)-new Date(first.date))/(7*86400000));
+    const ratePerWeek = (last.w-first.w)/weeks;
+    return { name:exo.name, ratePerWeek, sessions:hist.length };
+  }).filter(Boolean).sort((a,b)=> b.ratePerWeek-a.ratePerWeek);
+  return rows.slice(0,5);
+}
+
+function insightTopFoods(){
+  const counts = {};
+  state.nutrition.meals.forEach(m=>{ counts[m.name] = (counts[m.name]||0)+1; });
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+}
+
+function insightSleepVsPerformance(){
+  const byDate = {};
+  state.sleepLogs.forEach(l=>{ byDate[new Date(l.date).toDateString()] = l.quality; });
+  const good = [], bad = [];
+  state.sessions.forEach(s=>{
+    const sessionDay = new Date(s.date);
+    const prevDay = new Date(sessionDay.getTime()-86400000).toDateString();
+    const q = byDate[prevDay];
+    if(q==null) return;
+    (q>=4 ? good : q<=2 ? bad : []).push(s.difficulty||3);
+  });
+  if(good.length<3 || bad.length<3) return null;
+  const avg = arr=> arr.reduce((a,b)=>a+b,0)/arr.length;
+  return { goodAvg: avg(good), badAvg: avg(bad), goodN:good.length, badN:bad.length };
+}
+
+function insightFatigueDayOfWeek(){
+  const days = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const buckets = days.map(()=>[]);
+  state.sleepLogs.forEach(l=>{ buckets[new Date(l.date).getDay()].push(l.energy||3); });
+  const withData = buckets.map((v,i)=>({ day:days[i], n:v.length, avg: v.length? v.reduce((a,b)=>a+b,0)/v.length : null }))
+    .filter(d=>d.n>=2);
+  if(withData.length<2) return null;
+  return withData.sort((a,b)=>a.avg-b.avg)[0];
+}
+
+function statInsightsHtml(){
+  const totalDataPoints = state.sessions.length + state.sleepLogs.length + state.nutrition.meals.length;
+  if(totalDataPoints < 8){
+    return `<div class="stat-card"><div class="empty-stat">Continue à enregistrer tes séances, ton sommeil et tes repas — les insights apparaissent automatiquement dès qu'il y a assez de données pour être fiables (environ 1 à 2 semaines d'usage régulier).</div></div>`;
+  }
+
+  const timeOfDay = insightBestTimeOfDay();
+  const bestExos = insightBestExercises();
+  const topFoods = insightTopFoods();
+  const sleepPerf = insightSleepVsPerformance();
+  const fatigueDay = insightFatigueDayOfWeek();
+
+  let html = `<div class="stat-card"><div class="stat-title">💡 Ce que tes données racontent</div>
+    <div class="sr-sub">Analyse calculée uniquement à partir de ton propre historique — aucune donnée envoyée à l'extérieur.</div></div>`;
+
+  if(timeOfDay){
+    const best = timeOfDay[0];
+    html += `<div class="stat-card">
+      <div class="stat-title">⏰ Meilleur moment pour t'entraîner</div>
+      <div class="sr-sub">Tes séances du <b>${best.periode}</b> ont le ressenti d'effort moyen le plus bas (${best.avgDifficulty.toFixed(1)}/5 sur ${best.count} séances) — c'est probablement ton créneau le plus favorable.</div>
+    </div>`;
+  }
+  if(bestExos && bestExos.length){
+    html += `<div class="stat-card">
+      <div class="stat-title">📈 Exercices où tu progresses le plus vite</div>
+      <div class="splits-list">${bestExos.map(e=>`<div class="split-row"><span>${e.name}</span><span>${e.ratePerWeek>=0?'+':''}${e.ratePerWeek.toFixed(1)} kg/sem.</span></div>`).join('')}</div>
+    </div>`;
+  }
+  if(sleepPerf){
+    html += `<div class="stat-card">
+      <div class="stat-title">😴 Sommeil et performance</div>
+      <div class="sr-sub">Après une bonne nuit, ton ressenti d'effort moyen est de <b>${sleepPerf.goodAvg.toFixed(1)}/5</b> (${sleepPerf.goodN} séances) contre <b>${sleepPerf.badAvg.toFixed(1)}/5</b> (${sleepPerf.badN} séances) après une mauvaise nuit.
+      ${sleepPerf.goodAvg < sleepPerf.badAvg ? ' Bien dormir t\'aide clairement à mieux performer.' : ''}</div>
+    </div>`;
+  }
+  if(fatigueDay){
+    html += `<div class="stat-card">
+      <div class="stat-title">🔋 Jour le plus fatigant</div>
+      <div class="sr-sub">Ton niveau d'énergie est historiquement le plus bas le <b>${fatigueDay.day}</b>. Si tu peux, évite d'y placer tes séances les plus exigeantes.</div>
+    </div>`;
+  }
+  if(topFoods.length){
+    html += `<div class="stat-card">
+      <div class="stat-title">🥗 Aliments les plus consommés</div>
+      <div class="splits-list">${topFoods.map(([name,count])=>`<div class="split-row"><span>${name}</span><span>×${count}</span></div>`).join('')}</div>
+    </div>`;
+  }
+  if(!timeOfDay && !bestExos.length && !sleepPerf && !fatigueDay && !topFoods.length){
+    html += `<div class="stat-card"><div class="empty-stat">Pas encore assez de régularité dans tes données pour dégager des tendances fiables. Reviens dans quelques jours !</div></div>`;
+  }
+  return html;
+}
+
+/* ============================================================
    NUTRITION
    ============================================================ */
 const FOOD_DB = [
@@ -1645,7 +1846,7 @@ function renderNutrition(){
       ${macroBarHtml('Calories', totals.calories, t.calories, 'var(--accent)')}
       ${macroBarHtml('Protéines', totals.protein, t.protein, 'var(--muscu)')}
       ${macroBarHtml('Glucides', totals.carbs, t.carbs, 'var(--course)')}
-      ${macroBarHtml('Lipides', totals.fat, t.fat, '#e0a336')}
+      ${macroBarHtml('Lipides', totals.fat, t.fat, 'var(--warn)')}
     </div>
     <button class="btn secondary" id="suggestTargetsBtn">Suggérer mes objectifs (selon profil)</button>
 
@@ -1725,6 +1926,69 @@ function wireShoppingList(){
   });
 }
 
+/* ---------------- Scanner de codes-barres (Open Food Facts, gratuit) ---------------- */
+async function lookupOpenFoodFacts(barcode){
+  const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,nutriments,nutriscore_grade,allergens_hierarchy,ingredients_text_fr,ingredients_text`);
+  const data = await res.json();
+  if(data.status !== 1 || !data.product) return null;
+  const p = data.product;
+  const n = p.nutriments || {};
+  return {
+    id: 'off_'+barcode,
+    name: p.product_name || `Produit ${barcode}`,
+    cal: n['energy-kcal_100g'] || 0,
+    p: n.proteins_100g || 0,
+    c: n.carbohydrates_100g || 0,
+    f: n.fat_100g || 0,
+    fiber: n.fiber_100g,
+    sugars: n.sugars_100g,
+    salt: n.salt_100g,
+    nutriscore: p.nutriscore_grade,
+    allergens: (p.allergens_hierarchy||[]).map(a=>a.replace('en:','')).join(', '),
+    ingredients: p.ingredients_text_fr || p.ingredients_text,
+  };
+}
+
+function openBarcodeScanner(onDetected){
+  if(typeof ZXing==='undefined'){ toast('Scanner indisponible hors-ligne'); return; }
+  const root = document.createElement('div');
+  root.id = 'scannerRoot';
+  root.innerHTML = `<div class="tracker-overlay" id="scannerOverlay" style="background:#000;">
+    <div class="tracker-top">
+      <button class="modal-close" id="scannerCloseBtn">✕</button>
+      <div class="tracker-status" id="scannerStatus">Vise le code-barres du produit</div>
+      <div style="width:32px;"></div>
+    </div>
+    <video id="scannerVideo" style="width:100%; flex:1; object-fit:cover; border-radius:16px; background:#111;" playsinline muted></video>
+  </div>`;
+  document.body.appendChild(root);
+
+  const reader = new ZXing.BrowserMultiFormatReader();
+  let stopped = false;
+  const cleanup = ()=>{
+    if(stopped) return;
+    stopped = true;
+    try{ reader.reset(); }catch(e){}
+    root.remove();
+  };
+  document.getElementById('scannerCloseBtn').onclick = cleanup;
+
+  reader.decodeFromConstraints(
+    { video: { facingMode:'environment' } },
+    'scannerVideo',
+    (result, err)=>{
+      if(stopped) return;
+      if(result){
+        const text = result.getText();
+        cleanup();
+        onDetected(text);
+      }
+    }
+  ).catch(()=>{
+    document.getElementById('scannerStatus').textContent = "Impossible d'accéder à la caméra. Vérifie les autorisations dans Réglages.";
+  });
+}
+
 function openFoodLogModal(mealType){
   const root = document.getElementById('modalRoot');
   root.innerHTML = `<div class="modal-overlay" id="overlay">
@@ -1733,10 +1997,12 @@ function openFoodLogModal(mealType){
         <div class="modal-title">Ajouter un aliment</div>
         <button class="modal-close" id="closeModalBtn">✕</button>
       </div>
-      <div class="field"><input type="text" id="foodSearch" placeholder="Rechercher un aliment..."></div>
+      <button type="button" class="btn secondary" id="scanBarcodeBtn">📷 Scanner un code-barres</button>
+      <div class="field" style="margin-top:12px;"><input type="text" id="foodSearch" placeholder="Rechercher un aliment..."></div>
       <div id="foodResults"></div>
       <div id="foodQtyWrap" class="hidden">
         <div class="exo-block" id="foodPreview"></div>
+        <div id="foodOffDetail"></div>
         <div class="field"><label>Quantité (g)</label><input type="number" id="foodQtyInput" value="100"></div>
         <button class="btn" id="confirmFoodBtn">Ajouter</button>
       </div>
@@ -1755,11 +2021,22 @@ function openFoodLogModal(mealType){
       `<button type="button" class="picker-item" data-id="${f.id}">${f.name} <span class="sr-sub">${f.cal} kcal /100g</span></button>`).join('');
     document.querySelectorAll('#foodResults .picker-item').forEach(btn=>{
       btn.onclick = ()=>{
-        selectedFood = foodDbAll().find(f=>f.id===btn.dataset.id);
-        document.getElementById('foodQtyWrap').classList.remove('hidden');
-        updatePreview();
+        selectFood(foodDbAll().find(f=>f.id===btn.dataset.id));
       };
     });
+  };
+  const selectFood = (food)=>{
+    selectedFood = food;
+    document.getElementById('foodQtyWrap').classList.remove('hidden');
+    const offBits = [];
+    if(food.nutriscore) offBits.push(`Nutri-Score ${food.nutriscore.toUpperCase()}`);
+    if(food.fiber!=null) offBits.push(`Fibres ${food.fiber}g/100g`);
+    if(food.sugars!=null) offBits.push(`Sucres ${food.sugars}g/100g`);
+    if(food.salt!=null) offBits.push(`Sel ${food.salt}g/100g`);
+    if(food.allergens) offBits.push(`Allergènes : ${food.allergens}`);
+    document.getElementById('foodOffDetail').innerHTML = offBits.length ? `<div class="sr-sub" style="margin:-4px 0 10px;">${offBits.join(' · ')}</div>` : '';
+    updatePreview();
+    document.getElementById('foodQtyWrap').scrollIntoView({behavior:'smooth', block:'nearest'});
   };
   const updatePreview = ()=>{
     if(!selectedFood) return;
@@ -1772,6 +2049,18 @@ function openFoodLogModal(mealType){
   renderResults();
   document.getElementById('foodSearch').addEventListener('input', e=> renderResults(e.target.value));
   document.getElementById('foodQtyInput').addEventListener('input', updatePreview);
+  document.getElementById('scanBarcodeBtn').onclick = ()=>{
+    openBarcodeScanner(async (barcode)=>{
+      toast('Code détecté, recherche du produit...');
+      try{
+        const food = await lookupOpenFoodFacts(barcode);
+        if(!food){ toast('Produit introuvable dans la base Open Food Facts'); return; }
+        selectFood(food);
+      }catch(e){
+        toast('Erreur réseau — vérifie ta connexion');
+      }
+    });
+  };
   document.getElementById('confirmFoodBtn').onclick = ()=>{
     if(!selectedFood) return;
     const qty = parseFloat(document.getElementById('foodQtyInput').value)||0;
@@ -1780,6 +2069,7 @@ function openFoodLogModal(mealType){
       id: uid(), date: new Date().toISOString(), mealType,
       foodId: selectedFood.id, name: selectedFood.name, qty,
       calories: selectedFood.cal*ratio, protein: selectedFood.p*ratio, carbs: selectedFood.c*ratio, fat: selectedFood.f*ratio,
+      nutriscore: selectedFood.nutriscore,
     });
     saveState();
     awardXp(5);
@@ -1959,6 +2249,8 @@ function computeRecoveryScore(){
     score += (last.durationH-7)*5;
     score -= (last.soreness-1)*6;
     score += (last.energy-3)*5;
+    if(last.mood) score += (last.mood-3)*4;
+    if(last.hydration!=null && last.hydration<4) score -= 5;
   }
   const ratio = acwr();
   if(ratio!=null){
@@ -1995,10 +2287,12 @@ function renderSommeil(){
       ${logs.length ? logs.map(l=>`
         <div class="hist-item">
           <div class="hist-top">
-            <div class="hist-title">${l.durationH}h de sommeil</div>
+            <div class="hist-title">${Math.round(l.durationH*10)/10}h de sommeil</div>
             <div class="hist-date">${fmtDate(l.date)}</div>
           </div>
-          <div class="hist-detail">Qualité ${'⭐'.repeat(l.quality)} · Courbatures ${'💥'.repeat(l.soreness)} · Énergie ${'⚡'.repeat(l.energy)}${l.notes? '<br>'+l.notes:''}</div>
+          <div class="hist-detail">Qualité ${'⭐'.repeat(l.quality)} · Courbatures ${'💥'.repeat(l.soreness)} · Énergie ${'⚡'.repeat(l.energy)}${l.mood?' · Humeur '+'🙂'.repeat(l.mood):''}
+          ${(l.hydration!=null || l.hrv!=null) ? '<br>'+[l.hydration!=null?`💧 ${l.hydration} verres`:null, l.hrv!=null?`HRV ${l.hrv}ms`:null].filter(Boolean).join(' · ') : ''}
+          ${l.notes? '<br>'+l.notes:''}</div>
         </div>`).join('') : `<div class="hist-empty">Aucune nuit enregistrée pour l'instant.</div>`}
     </div>
   `;
@@ -2035,6 +2329,11 @@ function openSleepLogModal(){
       ${ratingRowHtml('slQuality', 'Qualité du sommeil')}
       ${ratingRowHtml('slSoreness', 'Courbatures (1=aucune, 5=intenses)')}
       ${ratingRowHtml('slEnergy', "Niveau d'énergie")}
+      ${ratingRowHtml('slMood', 'Humeur / motivation')}
+      <div class="row2">
+        <div class="field"><label>Hydratation (verres d'eau)</label><input type="number" id="slHydration"></div>
+        <div class="field"><label>HRV (ms, optionnel)</label><input type="number" id="slHrv" placeholder="depuis ta montre"></div>
+      </div>
       <div class="field"><label>Notes (optionnel)</label><textarea id="slNotes"></textarea></div>
       <button class="btn" id="saveSleepBtn">Enregistrer</button>
     </div>
@@ -2044,11 +2343,16 @@ function openSleepLogModal(){
   const getQuality = wireRatingRow('slQuality', ()=>{});
   const getSoreness = wireRatingRow('slSoreness', ()=>{});
   const getEnergy = wireRatingRow('slEnergy', ()=>{});
+  const getMood = wireRatingRow('slMood', ()=>{});
   document.getElementById('saveSleepBtn').onclick = ()=>{
     const durationH = parseFloat(document.getElementById('slDuration').value)||0;
-    const quality = getQuality()||3, soreness = getSoreness()||1, energy = getEnergy()||3;
+    const quality = getQuality()||3, soreness = getSoreness()||1, energy = getEnergy()||3, mood = getMood()||3;
+    const hydration = parseFloat(document.getElementById('slHydration').value);
+    const hrv = parseFloat(document.getElementById('slHrv').value);
     state.sleepLogs.push({
-      id: uid(), date: new Date().toISOString(), durationH, quality, soreness, energy,
+      id: uid(), date: new Date().toISOString(), durationH, quality, soreness, energy, mood,
+      hydration: isNaN(hydration)? undefined : hydration,
+      hrv: isNaN(hrv)? undefined : hrv,
       notes: document.getElementById('slNotes').value.trim(),
     });
     saveState();
@@ -2062,6 +2366,27 @@ function openSleepLogModal(){
 /* ============================================================
    DASHBOARD — cartes de score (Accueil)
    ============================================================ */
+function caloriesBurnedForSession(s){
+  const weight = state.settings.weightKg || 70;
+  if(s.type==='course') return weight * s.distance_km * 1.036;
+  const totalSets = (s.exercises||[]).reduce((a,e)=> a + (e.sets? e.sets.length:0), 0);
+  const durationH = (totalSets*3)/60;
+  return 5 * weight * durationH; // MET ≈5 pour la musculation
+}
+function caloriesBurnedToday(){
+  return state.sessions.filter(s=> new Date(s.date).toDateString()===todayStr())
+    .reduce((a,s)=> a+caloriesBurnedForSession(s), 0);
+}
+
+function buildCoachMessage(recovery, ratio, lastSleep){
+  if(ratio!=null && ratio>1.5) return "⚠️ Ta charge d'entraînement a beaucoup augmenté récemment — envisage une séance allégée ou un jour de repos.";
+  if(recovery < 40) return '😴 Récupération basse. Priorise le sommeil aujourd\'hui et garde une séance légère si tu t\'entraînes.';
+  if(lastSleep && lastSleep.soreness>=4) return '💥 Courbatures marquées signalées — pense à bien t\'échauffer et écoute ton corps.';
+  if(recovery>=80) return '🔥 Excellente forme ! C\'est le bon moment pour pousser un peu plus fort.';
+  if(ratio!=null && ratio<0.8) return '📉 Charge en baisse — tu peux augmenter progressivement le volume si tu te sens bien.';
+  return '✅ Tout est équilibré. Suis le plan du jour normalement.';
+}
+
 function renderDashboardScores(){
   const el = document.getElementById('dashboardScores');
   const recovery = computeRecoveryScore();
@@ -2073,8 +2398,11 @@ function renderDashboardScores(){
   const level = levelFromXp(xp);
   const xpIntoLevel = xp - xpForLevel(level);
   const xpForNext = xpForLevel(level+1) - xpForLevel(level);
+  const burned = caloriesBurnedToday();
+  const remaining = Math.round((state.nutrition.targets.calories||2000) - totals.calories);
 
   el.innerHTML = `
+    <div class="coach-msg">${buildCoachMessage(recovery, ratio, lastSleep)}</div>
     <div class="dash-grid">
       <div class="dash-card ${recInfo.cls}">
         <div class="dash-val">${recovery}</div>
@@ -2085,11 +2413,19 @@ function renderDashboardScores(){
         <div class="dash-label">Charge (ACWR)</div>
       </div>
       <div class="dash-card">
-        <div class="dash-val">${Math.round(totals.calories)}</div>
-        <div class="dash-label">kcal aujourd'hui</div>
+        <div class="dash-val">${remaining}</div>
+        <div class="dash-label">kcal restantes</div>
       </div>
       <div class="dash-card">
-        <div class="dash-val">${lastSleep? lastSleep.durationH+'h' : '—'}</div>
+        <div class="dash-val">${Math.round(burned)}</div>
+        <div class="dash-label">kcal dépensées</div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-val">${lastSleep&&lastSleep.energy? lastSleep.energy+'/5' : '—'}</div>
+        <div class="dash-label">Niveau d'énergie</div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-val">${lastSleep? (Math.round(lastSleep.durationH*10)/10)+'h' : '—'}</div>
         <div class="dash-label">Sommeil dernière nuit</div>
       </div>
     </div>
