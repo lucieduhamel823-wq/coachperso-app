@@ -120,29 +120,6 @@ const HARD_BW_REPS = { debutant:3, intermediaire:6, avance:10 };
 /* Durée de gainage de départ (secondes) */
 const CORE_SECONDS = { debutant:20, intermediaire:35, avance:50 };
 
-const TEMPLATES = {
-  fullbody: [
-    ['squat','developpe_couche','rowing_barre','developpe_militaire','gainage'],
-    ['solevede_terre','tractions','developpe_incline','fentes','crunch'],
-  ],
-  ppl: [
-    ['developpe_couche','developpe_militaire','extension_triceps','elevations_laterales','dips'],
-    ['tractions','rowing_barre','tirage_vertical','curl_biceps','gainage'],
-    ['squat','presse_cuisses','fentes','leg_curl','extension_quadriceps'],
-  ],
-  upperlower: [
-    ['developpe_couche','rowing_barre','developpe_militaire','curl_biceps','extension_triceps'],
-    ['squat','fentes','leg_curl','extension_quadriceps','gainage'],
-    ['developpe_incline','tractions','elevations_laterales','dips','crunch'],
-    ['solevede_terre','presse_cuisses','extension_quadriceps','leg_curl','gainage'],
-  ],
-};
-const TEMPLATE_LABELS = {
-  fullbody:['Full Body A','Full Body B'],
-  ppl:['Push','Pull','Legs'],
-  upperlower:['Haut du corps A','Bas du corps A','Haut du corps B','Bas du corps B'],
-};
-
 const GOAL_SETS_REPS = {
   force:{ sets:4, reps:5 },
   prise_masse:{ sets:4, reps:8 },
@@ -169,13 +146,11 @@ function defaultState(){
       muscuDaysPerWeek:2,
       courseDaysPerWeek:1,
       runTargetDistance:5,
-      templateKey:'fullbody',
     },
     exercises: EXERCISES.slice(),
     customExerciseIds: [],
     sessions: [],
     plan: [],
-    cycleIndex: 0,
     runProgress: { targetDistance:2, targetPace:7.0 }, // pace en min/km décimal
     nutrition: {
       targets: { calories:2000, protein:120, carbs:220, fat:65 },
@@ -300,17 +275,29 @@ function weightedTargetsFor(exerciseId){
   return { sets, reps, weight, name: exo.name, exerciseId, reason };
 }
 
-function buildMuscuSession(dayIndex){
-  const key = state.settings.templateKey;
-  const days = TEMPLATES[key];
-  const labels = TEMPLATE_LABELS[key];
-  const idx = dayIndex % days.length;
-  const exerciseIds = days[idx];
+const MIN_SESSIONS_BEFORE_SUGGESTION = 3;
+
+/* Pas de programme pré-généré : on mire la composition d'exercices de la séance
+   musculation la plus pertinente à répéter (avec surcharge progressive), en
+   alternant si l'utilisateur a plusieurs types de séances distincts. */
+function pickNextMuscuComposition(){
+  const muscuSessions = state.sessions.filter(s=>s.type==='muscu').sort((a,b)=> new Date(b.date)-new Date(a.date));
+  if(muscuSessions.length < MIN_SESSIONS_BEFORE_SUGGESTION) return null;
+  const sig = s=> s.exercises.map(e=>e.exerciseId).sort().join(',');
+  const lastSig = sig(muscuSessions[0]);
+  const alt = muscuSessions.find(s=> sig(s) !== lastSig);
+  const chosen = alt || muscuSessions[0];
+  return chosen.exercises.map(e=>e.exerciseId).filter(id=>exoById(id));
+}
+
+function buildMuscuSession(){
+  const exerciseIds = pickNextMuscuComposition();
+  if(!exerciseIds || !exerciseIds.length) return null;
   return {
     id: uid(),
     type:'muscu',
     status:'pending',
-    label: labels[idx],
+    label: 'Séance suggérée',
     exercises: exerciseIds.map(weightedTargetsFor),
   };
 }
@@ -327,41 +314,17 @@ function buildCourseSession(){
   };
 }
 
+/* Aucun plan n'est généré à l'avance : la musculation ne propose une
+   prochaine séance qu'après quelques séances loguées librement par
+   l'utilisateur, et la course ne se programme que sur demande explicite
+   (voir generateCourseProgram). */
 function ensurePlanFilled(){
-  const pending = state.plan.filter(p=>p.status==='pending');
-  const muscuRatio = state.settings.muscuDaysPerWeek;
-  const courseRatio = state.settings.courseDaysPerWeek;
-  const total = Math.max(1, muscuRatio+courseRatio);
-
-  while(pending.length + state.plan.filter(p=>p.status==='pending').length < 0){ break; } // no-op guard
-
-  while(state.plan.filter(p=>p.status==='pending').length < 4){
-    // décide du type suivant selon ratio (répartition équilibrée façon "plus grand reste")
-    const doneCounts = countTypesInQueueAndRecent();
-    const nextType = pickNextType(doneCounts, muscuRatio, courseRatio);
-    if(nextType==='muscu'){
-      state.plan.push(buildMuscuSession(state.cycleIndex));
-      state.cycleIndex++;
-    } else {
-      state.plan.push(buildCourseSession());
-    }
+  const hasPendingMuscu = state.plan.some(p=>p.status==='pending' && p.type==='muscu');
+  if(!hasPendingMuscu){
+    const suggestion = buildMuscuSession();
+    if(suggestion) state.plan.push(suggestion);
   }
   saveState();
-}
-
-function countTypesInQueueAndRecent(){
-  const queue = state.plan.filter(p=>p.status==='pending');
-  return {
-    muscu: queue.filter(p=>p.type==='muscu').length,
-    course: queue.filter(p=>p.type==='course').length,
-  };
-}
-function pickNextType(counts, muscuRatio, courseRatio){
-  if(courseRatio<=0) return 'muscu';
-  if(muscuRatio<=0) return 'course';
-  const muscuShare = counts.muscu / muscuRatio;
-  const courseShare = counts.course / courseRatio;
-  return muscuShare <= courseShare ? 'muscu' : 'course';
 }
 
 function adaptRunProgress(logged){
@@ -489,7 +452,20 @@ function renderNextSession(){
   const el = document.getElementById('nextSessionCard');
   const next = state.plan.find(p=>p.status==='pending');
   if(!next){
-    el.innerHTML = `<div class="card empty-hero"><span class="eh-emoji">🎉</span>Aucune séance prévue.<br>Configure tes objectifs dans Réglages.</div>`;
+    const muscuCount = state.sessions.filter(s=>s.type==='muscu').length;
+    const remaining = Math.max(0, MIN_SESSIONS_BEFORE_SUGGESTION - muscuCount);
+    el.innerHTML = `<div class="card empty-hero">
+      <span class="eh-emoji">💪</span>
+      ${remaining>0
+        ? `Enregistre librement tes séances de musculation.<br>Ton coach proposera la prochaine automatiquement dans ${remaining} séance${remaining>1?'s':''}.`
+        : `Enregistre ta prochaine séance librement, ou laisse ton coach s'en charger.`}
+      <div style="display:flex; gap:10px; margin-top:16px;">
+        <button class="btn" id="emptyLogMuscuBtn" style="margin-top:0;">Enregistrer une séance</button>
+        <button class="btn secondary" id="emptyGenCourseBtn" style="margin-top:0;">Programme course</button>
+      </div>
+    </div>`;
+    document.getElementById('emptyLogMuscuBtn').onclick = ()=> openLogModal('muscu', null);
+    document.getElementById('emptyGenCourseBtn').onclick = ()=> openCourseProgramGenerator();
     return;
   }
   if(next.type==='muscu'){
@@ -596,6 +572,7 @@ function renderHistorique(){
         ${extras.length? '<br>'+extras.join(' · ') : ''}
         <br>Ressenti : ${'⭐'.repeat(s.difficulty)}
       </div>
+      ${miniRouteMapHtml(s.route)}
     </div>`;
   }).join('');
 }
@@ -815,8 +792,6 @@ function renderReglages(){
     s.muscuDaysPerWeek = parseInt(document.getElementById('setMuscuDays').value)||0;
     s.courseDaysPerWeek = parseInt(document.getElementById('setCourseDays').value)||0;
     s.runTargetDistance = parseFloat(document.getElementById('setRunTarget').value)||5;
-    s.templateKey = s.muscuDaysPerWeek>=4 ? 'upperlower' : s.muscuDaysPerWeek===3 ? 'ppl' : 'fullbody';
-    state.plan = state.plan.filter(p=>p.status!=='pending'); // regénère la file avec nouveaux réglages
     saveState();
     ensurePlanFilled();
     toast('Réglages enregistrés');
@@ -836,10 +811,9 @@ function renderReglages(){
 
   document.getElementById('resetPlanBtn').onclick = ()=>{
     state.plan = [];
-    state.cycleIndex = 0;
     saveState();
     ensurePlanFilled();
-    toast('Plan régénéré');
+    toast('Suggestion régénérée');
   };
 
   document.getElementById('resetAllBtn').onclick = ()=>{
@@ -980,8 +954,8 @@ function openExercisePicker(onSelect){
 }
 
 function defaultFreeMuscuExos(){
-  const key = state.settings.templateKey;
-  return TEMPLATES[key][0].map(weightedTargetsFor);
+  const exerciseIds = pickNextMuscuComposition();
+  return exerciseIds ? exerciseIds.map(weightedTargetsFor) : [];
 }
 
 const RUN_TYPES = [
@@ -1194,6 +1168,7 @@ function startCourseFlow(planItem){
       <div class="ob-options">
         <button class="ob-option" id="chooseGps">🛰️ Suivi GPS en direct<span class="oo-sub">L'app trace ta distance, ton allure et ton parcours pendant que tu cours</span></button>
         <button class="ob-option" id="chooseManual">✏️ Saisie manuelle<span class="oo-sub">Tu renseignes les stats toi-même après coup</span></button>
+        <button class="ob-option" id="chooseGenerate">🎯 Générer un programme<span class="oo-sub">Demande une séance ou un objectif chronométré au coach</span></button>
       </div>
     </div>
   </div>`;
@@ -1201,6 +1176,160 @@ function startCourseFlow(planItem){
   document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
   document.getElementById('chooseGps').onclick = ()=> openRunTracker(planItem);
   document.getElementById('chooseManual').onclick = ()=> openLogModal('course', planItem);
+  document.getElementById('chooseGenerate').onclick = ()=> openCourseProgramGenerator();
+}
+
+/* ============================================================
+   GÉNÉRATEUR DE PROGRAMME COURSE (à la demande, pas automatique)
+   ============================================================ */
+function currentRunBaseline(){
+  const est = estimateVMA();
+  if(est) return { paceMinKm: 60/est.vma };
+  const lvl = state.settings.level;
+  const pace = lvl==='avance' ? 5.2 : lvl==='intermediaire' ? 6.2 : 7.2;
+  return { paceMinKm: pace };
+}
+function recentAvgDistance(){
+  const runs = state.sessions.filter(s=>s.type==='course').slice(0,5);
+  return runs.length ? runs.reduce((a,r)=>a+r.distance_km,0)/runs.length : 5;
+}
+
+function generateTimeGoalProgram(distanceKm, targetTimeMin){
+  const targetPace = targetTimeMin/distanceKm;
+  const baseline = currentRunBaseline();
+  state.plan = state.plan.filter(p=> !(p.type==='course' && p.status==='pending'));
+
+  const startDist = Math.max(2, Math.round(distanceKm*0.4*10)/10);
+  const startPace = baseline.paceMinKm;
+  const N = 6;
+  const types = ['endurance','fractionne','longue'];
+  const goalLabel = `${distanceKm}km en ${fmtElapsed(targetTimeMin*60000)}`;
+  for(let i=0;i<N;i++){
+    const t = i/(N-1);
+    const dist = Math.round((startDist + (distanceKm-startDist)*t)*10)/10;
+    const pace = startPace + (targetPace-startPace)*t;
+    const type = types[i%types.length];
+    const isFractionne = type==='fractionne';
+    state.plan.push({
+      id: uid(), type:'course', status:'pending',
+      targetDistance: isFractionne ? Math.max(3, Math.round(dist*0.6*10)/10) : dist,
+      targetPace: isFractionne ? Math.max(3.5, pace-0.5) : pace,
+      runType: type,
+      reason: `Étape ${i+1}/${N} vers ton objectif ${goalLabel}.`,
+    });
+  }
+  saveState();
+  toast(`Programme généré : ${goalLabel} 🎯`);
+  refreshCurrentView();
+}
+
+function generateSingleSession(kind, value){
+  const baseline = currentRunBaseline();
+  const avgDist = recentAvgDistance();
+  let targetDistance, targetPace, runType, reason;
+  if(kind==='duration'){
+    targetPace = baseline.paceMinKm;
+    targetDistance = Math.max(1, Math.round((value/targetPace)*10)/10);
+    runType = 'endurance';
+    reason = `Séance de ${value} minutes demandée, à ton allure habituelle.`;
+  } else if(kind==='distance'){
+    targetDistance = value;
+    targetPace = baseline.paceMinKm;
+    runType = 'endurance';
+    reason = `Sortie de ${value} km demandée.`;
+  } else if(kind==='fractionne'){
+    targetDistance = Math.max(3, Math.round(avgDist*0.7*10)/10);
+    targetPace = Math.max(3.5, baseline.paceMinKm-0.7);
+    runType = 'fractionne';
+    reason = 'Séance de fractionné : alterne efforts rapides et récupération active.';
+  } else {
+    targetDistance = Math.round(avgDist*1.5*10)/10;
+    targetPace = baseline.paceMinKm+0.5;
+    runType = 'longue';
+    reason = 'Sortie longue à allure confortable pour développer ton endurance de fond.';
+  }
+  state.plan.unshift({ id:uid(), type:'course', status:'pending', targetDistance, targetPace, runType, reason });
+  saveState();
+  toast('Séance générée 🎯');
+  refreshCurrentView();
+}
+
+const SINGLE_SESSION_TYPES = {
+  duration: { label:'Séance par durée', unit:'minutes', placeholder:'ex : 45' },
+  distance: { label:'Sortie par distance', unit:'km', placeholder:'ex : 12' },
+  fractionne: { label:'Fractionné', unit:null },
+  longue: { label:'Sortie longue', unit:null },
+};
+
+function openCourseProgramGenerator(){
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `<div class="modal-overlay" id="overlay">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">🎯 Générer un programme</div>
+        <button class="modal-close" id="closeModalBtn">✕</button>
+      </div>
+
+      <h3 class="section-title">Objectif chronométré</h3>
+      <div class="field">
+        <label>Distance</label>
+        <select id="goalDistance">
+          <option value="5">5 km</option>
+          <option value="10">10 km</option>
+          <option value="21.1">Semi-marathon (21,1 km)</option>
+          <option value="42.2">Marathon (42,2 km)</option>
+        </select>
+      </div>
+      <div class="field"><label>Temps cible (minutes)</label><input type="number" id="goalTime" placeholder="ex : 50"></div>
+      <button class="btn" id="genGoalBtn">Générer le programme</button>
+
+      <h3 class="section-title">Séance unique</h3>
+      <div class="ob-options" id="singleTypeOptions">
+        <button class="ob-option" data-single="duration">⏱️ ${SINGLE_SESSION_TYPES.duration.label}<span class="oo-sub">Ex : 45 minutes</span></button>
+        <button class="ob-option" data-single="distance">📏 ${SINGLE_SESSION_TYPES.distance.label}<span class="oo-sub">Ex : 12 km</span></button>
+        <button class="ob-option" data-single="fractionne">⚡ ${SINGLE_SESSION_TYPES.fractionne.label}<span class="oo-sub">Travail en intervalles</span></button>
+        <button class="ob-option" data-single="longue">🏞️ ${SINGLE_SESSION_TYPES.longue.label}<span class="oo-sub">Endurance fondamentale prolongée</span></button>
+      </div>
+      <div id="singleParamWrap" class="hidden">
+        <div class="field"><label id="singleParamLabel">Valeur</label><input type="number" id="singleParamInput"></div>
+        <button class="btn" id="genSingleBtn">Générer cette séance</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('closeModalBtn').onclick = closeModal;
+  document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+
+  document.getElementById('genGoalBtn').onclick = ()=>{
+    const distanceKm = parseFloat(document.getElementById('goalDistance').value);
+    const targetTimeMin = parseFloat(document.getElementById('goalTime').value);
+    if(!targetTimeMin || targetTimeMin<=0){ toast('Indique un temps cible'); return; }
+    generateTimeGoalProgram(distanceKm, targetTimeMin);
+    closeModal();
+  };
+
+  let selectedKind = null;
+  document.querySelectorAll('#singleTypeOptions .ob-option').forEach(btn=>{
+    btn.onclick = ()=>{
+      selectedKind = btn.dataset.single;
+      document.querySelectorAll('#singleTypeOptions .ob-option').forEach(b=>b.classList.toggle('on', b===btn));
+      const cfg = SINGLE_SESSION_TYPES[selectedKind];
+      if(!cfg.unit){
+        generateSingleSession(selectedKind);
+        closeModal();
+        return;
+      }
+      document.getElementById('singleParamWrap').classList.remove('hidden');
+      document.getElementById('singleParamLabel').textContent = `Valeur (${cfg.unit})`;
+      document.getElementById('singleParamInput').placeholder = cfg.placeholder;
+      document.getElementById('singleParamWrap').scrollIntoView({behavior:'smooth', block:'nearest'});
+    };
+  });
+  document.getElementById('genSingleBtn').onclick = ()=>{
+    const value = parseFloat(document.getElementById('singleParamInput').value);
+    if(!value || value<=0){ toast('Indique une valeur'); return; }
+    generateSingleSession(selectedKind, value);
+    closeModal();
+  };
 }
 
 /* ============================================================
@@ -1211,6 +1340,9 @@ function startCourseFlow(planItem){
    ============================================================ */
 const GPS_ACCURACY_MAX_M = 30;
 const MIN_POINT_DELTA_KM = 0.002;
+const MAX_SPEED_MPS = 8; // ~28.8 km/h : au-delà, on considère que c'est une erreur GPS, pas un vrai déplacement
+const SIGNAL_GAP_MS = 15000; // au-delà, on ne compte pas le saut de position comme distance parcourue
+const INSTANT_PACE_WINDOW_MS = 30000; // fenêtre glissante pour l'allure instantanée
 
 function haversineKm(lat1, lon1, lat2, lon2){
   const R = 6371;
@@ -1232,6 +1364,7 @@ function trackerOverlayHtml(){
     <div class="tracker-timer" id="trackerTimer">00:00</div>
     <div class="tracker-stats-grid">
       <div class="tracker-stat"><div class="ts-val" id="trackerDistance">0.00</div><div class="ts-label">km</div></div>
+      <div class="tracker-stat"><div class="ts-val" id="trackerInstantPace">--:--</div><div class="ts-label">allure instant. /km</div></div>
       <div class="tracker-stat"><div class="ts-val" id="trackerPace">--:--</div><div class="ts-label">allure moy. /km</div></div>
       <div class="tracker-stat"><div class="ts-val" id="trackerElev">0</div><div class="ts-label">m D+</div></div>
     </div>
@@ -1315,17 +1448,37 @@ function onTrackerPosition(pos){
   const { latitude:lat, longitude:lon, altitude, accuracy } = pos.coords;
   const statusEl = document.getElementById('trackerStatus');
 
-  if(accuracy != null && accuracy > GPS_ACCURACY_MAX_M){
+  // seuil de précision adaptatif : on se resserre si on a déjà eu du bon signal,
+  // pour éviter qu'un point moyen ne vienne polluer un tracé jusque-là propre
+  const dynamicMax = tracker.points.length>5 ? Math.min(GPS_ACCURACY_MAX_M, 20) : GPS_ACCURACY_MAX_M;
+  if(accuracy != null && accuracy > dynamicMax){
     statusEl.textContent = `Signal GPS faible (±${Math.round(accuracy)}m)…`;
     return;
   }
-  statusEl.textContent = '🟢 Suivi en cours';
 
   const prev = tracker.points[tracker.points.length-1];
-  const point = { lat, lon, alt: altitude, tMs: Date.now()-tracker.startTime };
+  const nowMs = Date.now();
+  const point = { lat, lon, alt: altitude, tMs: nowMs-tracker.startTime };
 
   if(prev){
+    const dtMs = point.tMs - prev.tMs;
     const d = haversineKm(prev.lat, prev.lon, lat, lon);
+
+    if(dtMs > SIGNAL_GAP_MS){
+      // trou de signal (tunnel, immeuble...) : on repart proprement d'ici sans compter le saut
+      statusEl.textContent = '🟢 Signal retrouvé';
+      tracker.points.push(point);
+      maybePushRoutePoint(point);
+      return;
+    }
+
+    const impliedSpeed = dtMs>0 ? (d*1000)/(dtMs/1000) : 0; // m/s
+    if(impliedSpeed > MAX_SPEED_MPS){
+      // saut GPS aberrant (rebond satellite) : on ignore ce point, on attend le suivant
+      return;
+    }
+
+    statusEl.textContent = '🟢 Suivi en cours';
     if(d >= MIN_POINT_DELTA_KM){
       tracker.distanceKm += d;
       if(altitude!=null && prev.alt!=null){
@@ -1335,14 +1488,39 @@ function onTrackerPosition(pos){
       tracker.points.push(point);
       maybePushRoutePoint(point);
       checkSplit();
+      updateInstantPace();
       document.getElementById('trackerDistance').textContent = tracker.distanceKm.toFixed(2);
       document.getElementById('trackerElev').textContent = Math.round(tracker.elevGain);
       drawTrackerRoute();
     }
   } else {
+    statusEl.textContent = '🟢 Suivi en cours';
     tracker.points.push(point);
     maybePushRoutePoint(point);
   }
+}
+
+function updateInstantPace(){
+  const pts = tracker.points;
+  const last = pts[pts.length-1];
+  const cutoff = last.tMs - INSTANT_PACE_WINDOW_MS;
+  let refIdx = pts.length-1;
+  while(refIdx>0 && pts[refIdx-1].tMs >= cutoff) refIdx--;
+  const ref = pts[refIdx];
+  if(ref===last) return;
+  const distKm = haversineKmPath(pts, refIdx, pts.length-1);
+  const durMin = (last.tMs-ref.tMs)/60000;
+  const el = document.getElementById('trackerInstantPace');
+  if(!el) return;
+  if(distKm < 0.02 || durMin<=0){ el.textContent='--:--'; return; }
+  el.textContent = fmtPace(durMin/distKm).replace('/km','');
+}
+function haversineKmPath(pts, from, to){
+  let total = 0;
+  for(let i=from; i<to; i++){
+    total += haversineKm(pts[i].lat, pts[i].lon, pts[i+1].lat, pts[i+1].lon);
+  }
+  return total;
 }
 
 function maybePushRoutePoint(point){
@@ -1363,21 +1541,27 @@ function checkSplit(){
   }
 }
 
-function drawTrackerRoute(){
-  if(tracker.route.length < 2) return;
-  const lats = tracker.route.map(p=>p.lat), lons = tracker.route.map(p=>p.lon);
+function routePolylinePoints(route, w, h, pad){
+  const lats = route.map(p=>p.lat), lons = route.map(p=>p.lon);
   const lat0 = lats[0];
   const mPerLat = 110540, mPerLon = 111320*Math.cos(lat0*Math.PI/180);
   const xs = lons.map(lon=> (lon - lons[0]) * mPerLon);
   const ys = lats.map(lat=> -(lat - lat0) * mPerLat);
   const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
   const spanX = Math.max(maxX-minX, 10), spanY = Math.max(maxY-minY, 10);
-  const pad = 20, w = 300, h = 220;
   const scale = Math.min((w-pad*2)/spanX, (h-pad*2)/spanY);
   const offX = (w - spanX*scale)/2 - minX*scale;
   const offY = (h - spanY*scale)/2 - minY*scale;
-  const pts = xs.map((x,i)=> `${(x*scale+offX).toFixed(1)},${(ys[i]*scale+offY).toFixed(1)}`).join(' ');
-  document.getElementById('trackerRoutePath').setAttribute('points', pts);
+  return xs.map((x,i)=> `${(x*scale+offX).toFixed(1)},${(ys[i]*scale+offY).toFixed(1)}`).join(' ');
+}
+function drawTrackerRoute(){
+  if(tracker.route.length < 2) return;
+  document.getElementById('trackerRoutePath').setAttribute('points', routePolylinePoints(tracker.route, 300, 220, 20));
+}
+function miniRouteMapHtml(route){
+  if(!route || route.length<2) return '';
+  const pts = routePolylinePoints(route, 300, 120, 12);
+  return `<svg class="mini-route" viewBox="0 0 300 120"><polyline points="${pts}"></polyline></svg>`;
 }
 
 function toggleTrackerPause(){
@@ -1662,6 +1846,57 @@ function insightFatigueDayOfWeek(){
   return withData.sort((a,b)=>a.avg-b.avg)[0];
 }
 
+function detectPlateaus(){
+  const weighted = state.exercises.filter(e=>e.kind==='weighted');
+  const plateaus = [];
+  weighted.forEach(exo=>{
+    const hist = state.sessions.filter(s=>s.type==='muscu')
+      .flatMap(s=> s.exercises.filter(e=>e.exerciseId===exo.id).map(e=>({ date:s.date, w:Math.max(0,...(e.sets||[]).map(st=>st.weight||0)) })))
+      .sort((a,b)=> new Date(a.date)-new Date(b.date));
+    if(hist.length<4) return;
+    const last4 = hist.slice(-4);
+    const maxW = Math.max(...last4.map(h=>h.w));
+    const minW = Math.min(...last4.map(h=>h.w));
+    if(maxW>0 && maxW-minW < 0.01){
+      plateaus.push({ name: exo.name, weight:maxW });
+    }
+  });
+  return plateaus;
+}
+
+function detectMuscleImbalance(){
+  const cutoff = Date.now() - 28*86400000;
+  const volumeByGroup = {};
+  state.sessions.filter(s=>s.type==='muscu' && new Date(s.date).getTime()>=cutoff).forEach(s=>{
+    s.exercises.forEach(e=>{
+      const exo = exoById(e.exerciseId);
+      if(!exo) return;
+      const vol = (e.sets||[]).reduce((a,st)=>a+(st.reps||0),0);
+      volumeByGroup[exo.group] = (volumeByGroup[exo.group]||0)+vol;
+    });
+  });
+  const entries = Object.entries(volumeByGroup);
+  if(entries.length<3) return null;
+  const total = entries.reduce((a,[,v])=>a+v,0);
+  const avg = total/entries.length;
+  const under = entries.filter(([,v])=> v < avg*0.4).map(([g])=>g);
+  if(!under.length) return null;
+  return under;
+}
+
+function detectFatigueWeek(){
+  const thisWeekStart = startOfWeek();
+  const lastWeekStart = new Date(thisWeekStart.getTime()-7*86400000);
+  const thisWeekSessions = state.sessions.filter(s=> new Date(s.date)>=thisWeekStart);
+  const lastWeekSessions = state.sessions.filter(s=> new Date(s.date)>=lastWeekStart && new Date(s.date)<thisWeekStart);
+  if(thisWeekSessions.length<2 || lastWeekSessions.length<2) return null;
+  const avg = arr=> arr.reduce((a,s)=>a+(s.difficulty||3),0)/arr.length;
+  const thisAvg = avg(thisWeekSessions), lastAvg = avg(lastWeekSessions);
+  if(thisAvg - lastAvg >= 1) return { thisAvg, lastAvg, verdict:'fatigue' };
+  if(lastAvg - thisAvg >= 1) return { thisAvg, lastAvg, verdict:'progression' };
+  return null;
+}
+
 function statInsightsHtml(){
   const totalDataPoints = state.sessions.length + state.sleepLogs.length + state.nutrition.meals.length;
   if(totalDataPoints < 8){
@@ -1673,10 +1908,38 @@ function statInsightsHtml(){
   const topFoods = insightTopFoods();
   const sleepPerf = insightSleepVsPerformance();
   const fatigueDay = insightFatigueDayOfWeek();
+  const plateaus = detectPlateaus();
+  const imbalance = detectMuscleImbalance();
+  const fatigueWeek = detectFatigueWeek();
 
   let html = `<div class="stat-card"><div class="stat-title">💡 Ce que tes données racontent</div>
     <div class="sr-sub">Analyse calculée uniquement à partir de ton propre historique — aucune donnée envoyée à l'extérieur.</div></div>`;
 
+  if(fatigueWeek && fatigueWeek.verdict==='fatigue'){
+    html += `<div class="stat-card">
+      <div class="stat-title">⚠️ Semaine de fatigue détectée</div>
+      <div class="sr-sub">Ton ressenti d'effort moyen est passé de ${fatigueWeek.lastAvg.toFixed(1)}/5 à ${fatigueWeek.thisAvg.toFixed(1)}/5 par rapport à la semaine dernière. Envisage une séance plus légère ou un jour de repos supplémentaire.</div>
+    </div>`;
+  } else if(fatigueWeek && fatigueWeek.verdict==='progression'){
+    html += `<div class="stat-card">
+      <div class="stat-title">🚀 Semaine de forte progression</div>
+      <div class="sr-sub">Ton ressenti d'effort s'améliore nettement (${fatigueWeek.lastAvg.toFixed(1)}/5 → ${fatigueWeek.thisAvg.toFixed(1)}/5) : tes séances passent mieux que la semaine dernière.</div>
+    </div>`;
+  }
+  if(plateaus.length){
+    html += `<div class="stat-card">
+      <div class="stat-title">📊 Plateau détecté</div>
+      <div class="sr-sub">Charge inchangée depuis 4 séances sur :</div>
+      <div class="splits-list">${plateaus.map(p=>`<div class="split-row"><span>${p.name}</span><span>${p.weight}kg</span></div>`).join('')}</div>
+      <div class="sr-sub" style="margin-top:8px;">Essaie de varier les répétitions, le tempo, ou d'intercaler une semaine de deload pour relancer la progression.</div>
+    </div>`;
+  }
+  if(imbalance){
+    html += `<div class="stat-card">
+      <div class="stat-title">⚖️ Déséquilibre musculaire</div>
+      <div class="sr-sub">Groupes musculaires peu travaillés ces 4 dernières semaines : <b>${imbalance.join(', ')}</b>. Pense à les intégrer à tes prochaines séances pour rester équilibré·e.</div>
+    </div>`;
+  }
   if(timeOfDay){
     const best = timeOfDay[0];
     html += `<div class="stat-card">
@@ -1709,7 +1972,7 @@ function statInsightsHtml(){
       <div class="splits-list">${topFoods.map(([name,count])=>`<div class="split-row"><span>${name}</span><span>×${count}</span></div>`).join('')}</div>
     </div>`;
   }
-  if(!timeOfDay && !bestExos.length && !sleepPerf && !fatigueDay && !topFoods.length){
+  if(!timeOfDay && !bestExos.length && !sleepPerf && !fatigueDay && !topFoods.length && !plateaus.length && !imbalance && !fatigueWeek){
     html += `<div class="stat-card"><div class="empty-stat">Pas encore assez de régularité dans tes données pour dégager des tendances fiables. Reviens dans quelques jours !</div></div>`;
   }
   return html;
@@ -2521,18 +2784,12 @@ function renderObStep(){
 }
 function finishOnboarding(){
   Object.assign(state.settings, obAnswers, { onboarded:true });
-  state.settings.templateKey = state.settings.muscuDaysPerWeek>=4 ? 'upperlower' : state.settings.muscuDaysPerWeek===3 ? 'ppl' : 'fullbody';
   state.runProgress.targetDistance = Math.max(1.5, Math.round((state.settings.runTargetDistance*0.4)*10)/10);
   state.runProgress.targetPace = state.settings.level==='avance' ? 5.5 : state.settings.level==='intermediaire' ? 6.3 : 7.2;
-  // le plan a pu être pré-rempli avec les réglages par défaut pendant que l'onboarding
-  // était affiché par-dessus (rendu de fond) : on le régénère avec les vrais choix.
-  state.plan = [];
-  state.cycleIndex = 0;
   saveState();
   closeModal();
-  ensurePlanFilled();
   renderAll();
-  toast('Ton plan est prêt 🎉');
+  toast('Objectifs enregistrés — à toi de jouer 💪');
 }
 
 /* ============================================================
