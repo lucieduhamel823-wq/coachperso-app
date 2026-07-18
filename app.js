@@ -157,8 +157,6 @@ function defaultState(){
       customFoods: [],
       meals: [], // {id, date, mealType, items:[{foodId,name,qty,calories,protein,carbs,fat}]}
     },
-    bodyLogs: [], // {id, date, weightKg, bodyFatPct, waist, chest, hips, arms, thighs, photo}
-    sleepLogs: [], // {id, date, durationH, quality, soreness, energy, notes}
     gamification: { xp:0, streak:0, lastActiveDate:null, badges:[] },
   };
 }
@@ -243,9 +241,7 @@ function weightedTargetsFor(exerciseId){
   // sinon 'bodyweight' classique : on garde reps = goalCfg.reps
 
   let reason = 'Charge de départ suggérée selon ton niveau.';
-  const recovery = computeRecoveryScore();
   const ratio = acwr();
-  const lowRecovery = recovery < 40;
   const highLoad = ratio!=null && ratio>1.5;
 
   if(past.length){
@@ -253,10 +249,8 @@ function weightedTargetsFor(exerciseId){
     const targetReps = last.targetReps || reps;
     const achieved = (last.sets||[]).length ? (last.sets||[]).every(s=>(s.reps||0) >= targetReps) : false;
 
-    if((lowRecovery || highLoad) && achieved){
-      reason = lowRecovery
-        ? `Charge maintenue : ton score de récupération (${recovery}/100) est bas, mieux vaut consolider avant de progresser.`
-        : `Charge maintenue : ta charge d'entraînement récente est élevée (ACWR ${ratio.toFixed(1)}), on évite d'en rajouter.`;
+    if(highLoad && achieved){
+      reason = `Charge maintenue : ta charge d'entraînement récente est élevée (ACWR ${ratio.toFixed(1)}), on évite d'en rajouter.`;
       if(exo.kind==='weighted') weight = last.weightUsed ?? weight;
       reps = targetReps;
     } else if(exo.kind==='weighted'){
@@ -334,15 +328,12 @@ function adaptRunProgress(logged){
   let { targetDistance, targetPace } = state.runProgress;
   let reason;
 
-  const recovery = computeRecoveryScore();
   const ratio = acwr();
-  const shouldHoldBack = recovery < 40 || (ratio!=null && ratio>1.5);
+  const shouldHoldBack = ratio!=null && ratio>1.5;
 
   if(distRatio >= 0.95 && diff<=3){
     if(shouldHoldBack){
-      reason = recovery < 40
-        ? `Distance maintenue : ta récupération (${recovery}/100) est basse malgré une bonne dernière sortie.`
-        : `Distance maintenue : ta charge d'entraînement récente est élevée (ACWR ${ratio.toFixed(1)}).`;
+      reason = `Distance maintenue : ta charge d'entraînement récente est élevée (ACWR ${ratio.toFixed(1)}).`;
     } else {
       targetDistance = Math.round((target*1.1)*10)/10;
       reason = `Distance augmentée : objectif précédent atteint avec un ressenti confortable (${diff}/5).`;
@@ -353,7 +344,7 @@ function adaptRunProgress(logged){
     targetPace = targetPace + 1/6;
     reason = diff>=4 ? `Distance réduite : la sortie précédente était difficile (ressenti ${diff}/5).` : "Distance réduite : l'objectif précédent n'a pas été complété.";
   } else {
-    reason = 'Cible stable : bon équilibre entre effort et récupération.';
+    reason = 'Cible stable : bon équilibre entre effort et charge d\'entraînement.';
   }
   // rapprocher progressivement de l'objectif si en dessous
   const goalDist = state.settings.runTargetDistance;
@@ -384,7 +375,7 @@ function logFreeSession(sessionData){
 /* ============================================================
    RENDER — Accueil
    ============================================================ */
-function renderAccueil(){
+function renderEntrainementToday(){
   ensurePlanFilled();
   renderDashboardScores();
   renderWeekProgress();
@@ -1142,8 +1133,6 @@ function openFreeLogChooser(){
         <button class="ob-option" id="chooseMuscu">🏋️ Musculation<span class="oo-sub">Enregistrer une séance libre</span></button>
         <button class="ob-option" id="chooseCourse">🏃 Course à pied<span class="oo-sub">Enregistrer une sortie libre</span></button>
         <button class="ob-option" id="chooseRepas">🥗 Repas<span class="oo-sub">Ajouter un aliment</span></button>
-        <button class="ob-option" id="choosePesee">📏 Relevé corporel<span class="oo-sub">Poids, mensurations, photo</span></button>
-        <button class="ob-option" id="chooseSommeil">😴 Sommeil<span class="oo-sub">Enregistrer une nuit</span></button>
       </div>
     </div>
   </div>`;
@@ -1152,8 +1141,6 @@ function openFreeLogChooser(){
   document.getElementById('chooseMuscu').onclick = ()=> openLogModal('muscu', null);
   document.getElementById('chooseCourse').onclick = ()=> startCourseFlow(null);
   document.getElementById('chooseRepas').onclick = ()=> openFoodLogModal('collation');
-  document.getElementById('choosePesee').onclick = ()=> openBodyLogModal();
-  document.getElementById('chooseSommeil').onclick = ()=> openSleepLogModal();
 }
 
 /* ---------------- Choix GPS / saisie manuelle pour une course ---------------- */
@@ -1634,8 +1621,8 @@ const BADGES = [
   { id:'hundred_km', label:'100 km cumulés', emoji:'🌍', check:s=> s.sessions.filter(x=>x.type==='course').reduce((a,x)=>a+x.distance_km,0)>=100 },
   { id:'thirty_muscu', label:'30 séances muscu', emoji:'💪', check:s=> s.sessions.filter(x=>x.type==='muscu').length>=30 },
   { id:'nutrition_track', label:'Premier repas suivi', emoji:'🥗', check:s=> s.nutrition.meals.length>=1 },
-  { id:'sleep_week', label:'7 nuits suivies', emoji:'😴', check:s=> s.sleepLogs.length>=7 },
-  { id:'body_tracker', label:'Premier relevé corporel', emoji:'📏', check:s=> s.bodyLogs.length>=1 },
+  { id:'nutrition_week', label:'20 repas suivis', emoji:'🍎', check:s=> s.nutrition.meals.length>=20 },
+  { id:'coach_unlocked', label:'Coach débloqué', emoji:'🧠', check:s=> s.sessions.filter(x=>x.type==='muscu').length>=MIN_SESSIONS_BEFORE_SUGGESTION },
 ];
 
 function awardXp(amount){
@@ -1820,32 +1807,6 @@ function insightTopFoods(){
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,6);
 }
 
-function insightSleepVsPerformance(){
-  const byDate = {};
-  state.sleepLogs.forEach(l=>{ byDate[new Date(l.date).toDateString()] = l.quality; });
-  const good = [], bad = [];
-  state.sessions.forEach(s=>{
-    const sessionDay = new Date(s.date);
-    const prevDay = new Date(sessionDay.getTime()-86400000).toDateString();
-    const q = byDate[prevDay];
-    if(q==null) return;
-    (q>=4 ? good : q<=2 ? bad : []).push(s.difficulty||3);
-  });
-  if(good.length<3 || bad.length<3) return null;
-  const avg = arr=> arr.reduce((a,b)=>a+b,0)/arr.length;
-  return { goodAvg: avg(good), badAvg: avg(bad), goodN:good.length, badN:bad.length };
-}
-
-function insightFatigueDayOfWeek(){
-  const days = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-  const buckets = days.map(()=>[]);
-  state.sleepLogs.forEach(l=>{ buckets[new Date(l.date).getDay()].push(l.energy||3); });
-  const withData = buckets.map((v,i)=>({ day:days[i], n:v.length, avg: v.length? v.reduce((a,b)=>a+b,0)/v.length : null }))
-    .filter(d=>d.n>=2);
-  if(withData.length<2) return null;
-  return withData.sort((a,b)=>a.avg-b.avg)[0];
-}
-
 function detectPlateaus(){
   const weighted = state.exercises.filter(e=>e.kind==='weighted');
   const plateaus = [];
@@ -1898,16 +1859,14 @@ function detectFatigueWeek(){
 }
 
 function statInsightsHtml(){
-  const totalDataPoints = state.sessions.length + state.sleepLogs.length + state.nutrition.meals.length;
+  const totalDataPoints = state.sessions.length + state.nutrition.meals.length;
   if(totalDataPoints < 8){
-    return `<div class="stat-card"><div class="empty-stat">Continue à enregistrer tes séances, ton sommeil et tes repas — les insights apparaissent automatiquement dès qu'il y a assez de données pour être fiables (environ 1 à 2 semaines d'usage régulier).</div></div>`;
+    return `<div class="stat-card"><div class="empty-stat">Continue à enregistrer tes séances et tes repas — les insights apparaissent automatiquement dès qu'il y a assez de données pour être fiables (environ 1 à 2 semaines d'usage régulier).</div></div>`;
   }
 
   const timeOfDay = insightBestTimeOfDay();
   const bestExos = insightBestExercises();
   const topFoods = insightTopFoods();
-  const sleepPerf = insightSleepVsPerformance();
-  const fatigueDay = insightFatigueDayOfWeek();
   const plateaus = detectPlateaus();
   const imbalance = detectMuscleImbalance();
   const fatigueWeek = detectFatigueWeek();
@@ -1953,26 +1912,13 @@ function statInsightsHtml(){
       <div class="splits-list">${bestExos.map(e=>`<div class="split-row"><span>${e.name}</span><span>${e.ratePerWeek>=0?'+':''}${e.ratePerWeek.toFixed(1)} kg/sem.</span></div>`).join('')}</div>
     </div>`;
   }
-  if(sleepPerf){
-    html += `<div class="stat-card">
-      <div class="stat-title">😴 Sommeil et performance</div>
-      <div class="sr-sub">Après une bonne nuit, ton ressenti d'effort moyen est de <b>${sleepPerf.goodAvg.toFixed(1)}/5</b> (${sleepPerf.goodN} séances) contre <b>${sleepPerf.badAvg.toFixed(1)}/5</b> (${sleepPerf.badN} séances) après une mauvaise nuit.
-      ${sleepPerf.goodAvg < sleepPerf.badAvg ? ' Bien dormir t\'aide clairement à mieux performer.' : ''}</div>
-    </div>`;
-  }
-  if(fatigueDay){
-    html += `<div class="stat-card">
-      <div class="stat-title">🔋 Jour le plus fatigant</div>
-      <div class="sr-sub">Ton niveau d'énergie est historiquement le plus bas le <b>${fatigueDay.day}</b>. Si tu peux, évite d'y placer tes séances les plus exigeantes.</div>
-    </div>`;
-  }
   if(topFoods.length){
     html += `<div class="stat-card">
       <div class="stat-title">🥗 Aliments les plus consommés</div>
       <div class="splits-list">${topFoods.map(([name,count])=>`<div class="split-row"><span>${name}</span><span>×${count}</span></div>`).join('')}</div>
     </div>`;
   }
-  if(!timeOfDay && !bestExos.length && !sleepPerf && !fatigueDay && !topFoods.length && !plateaus.length && !imbalance && !fatigueWeek){
+  if(!timeOfDay && !bestExos.length && !topFoods.length && !plateaus.length && !imbalance && !fatigueWeek){
     html += `<div class="stat-card"><div class="empty-stat">Pas encore assez de régularité dans tes données pour dégager des tendances fiables. Reviens dans quelques jours !</div></div>`;
   }
   return html;
@@ -2380,253 +2326,6 @@ function openFoodLogModal(mealType){
 }
 
 /* ============================================================
-   SUIVI PHYSIQUE (CORPS)
-   ============================================================ */
-function computeBmi(weightKg, heightCm){
-  if(!weightKg || !heightCm) return null;
-  const h = heightCm/100;
-  return weightKg/(h*h);
-}
-
-function renderCorps(){
-  const el = document.getElementById('santeContent');
-  const logs = [...state.bodyLogs].sort((a,b)=> new Date(b.date)-new Date(a.date));
-  const last = logs[0];
-  const bmi = last ? computeBmi(last.weightKg, state.settings.heightCm) : null;
-
-  const weightSeries = [...state.bodyLogs].sort((a,b)=> new Date(a.date)-new Date(b.date)).filter(l=>l.weightKg);
-
-  el.innerHTML = `
-    <div class="stat-card">
-      <div class="kpi-row">
-        <div class="kpi"><div class="kv">${last&&last.weightKg? last.weightKg+' kg' : '—'}</div><div class="kl">Poids actuel</div></div>
-        <div class="kpi"><div class="kv">${bmi? bmi.toFixed(1) : '—'}</div><div class="kl">IMC</div></div>
-        <div class="kpi"><div class="kv">${last&&last.bodyFatPct? last.bodyFatPct+'%' : '—'}</div><div class="kl">Masse grasse</div></div>
-      </div>
-    </div>
-    ${weightSeries.length>=2 ? `<div class="stat-card"><div class="stat-title">Évolution du poids (kg)</div>${lineChart(weightSeries.map(l=>l.weightKg), weightSeries.map(l=>fmtDate(l.date)), 'var(--accent)', 'kg')}</div>` : ''}
-    <button class="btn" id="addBodyLogBtn">+ Nouveau relevé</button>
-    <h3 class="section-title">Historique</h3>
-    <div class="history-list">
-      ${logs.length ? logs.map(l=>`
-        <div class="hist-item">
-          <div class="hist-top">
-            <div class="hist-title">${l.weightKg? l.weightKg+' kg' : 'Relevé'}</div>
-            <div class="hist-date">${fmtDate(l.date)}</div>
-          </div>
-          <div class="hist-detail">
-            ${[
-              l.bodyFatPct?`MG ${l.bodyFatPct}%`:null,
-              l.waist?`Taille ${l.waist}cm`:null,
-              l.chest?`Poitrine ${l.chest}cm`:null,
-              l.hips?`Hanches ${l.hips}cm`:null,
-              l.arms?`Bras ${l.arms}cm`:null,
-              l.thighs?`Cuisses ${l.thighs}cm`:null,
-            ].filter(Boolean).join(' · ') || 'Aucun détail'}
-          </div>
-          ${l.photo? `<img src="${l.photo}" class="body-photo-thumb">` : ''}
-        </div>`).join('') : `<div class="hist-empty">Aucun relevé pour l'instant.</div>`}
-    </div>
-  `;
-  document.getElementById('addBodyLogBtn').onclick = openBodyLogModal;
-}
-
-function compressImage(file, maxSize=500, quality=0.7){
-  return new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    reader.onload = e=>{
-      const img = new Image();
-      img.onload = ()=>{
-        const scale = Math.min(1, maxSize/Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width*scale;
-        canvas.height = img.height*scale;
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = reject;
-      img.src = e.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function openBodyLogModal(){
-  const root = document.getElementById('modalRoot');
-  root.innerHTML = `<div class="modal-overlay" id="overlay">
-    <div class="modal-sheet">
-      <div class="modal-header">
-        <div class="modal-title">Nouveau relevé corporel</div>
-        <button class="modal-close" id="closeModalBtn">✕</button>
-      </div>
-      <div class="row2">
-        <div class="field"><label>Poids (kg)</label><input type="number" step="0.1" id="bwWeight" value="${state.settings.weightKg||''}"></div>
-        <div class="field"><label>Masse grasse (%)</label><input type="number" step="0.1" id="bwFat"></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>Tour de taille (cm)</label><input type="number" id="bwWaist"></div>
-        <div class="field"><label>Tour de poitrine (cm)</label><input type="number" id="bwChest"></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>Tour de hanches (cm)</label><input type="number" id="bwHips"></div>
-        <div class="field"><label>Tour de bras (cm)</label><input type="number" id="bwArms"></div>
-      </div>
-      <div class="field"><label>Tour de cuisses (cm)</label><input type="number" id="bwThighs"></div>
-      <div class="field"><label>Photo (optionnel)</label><input type="file" accept="image/*" id="bwPhoto"></div>
-      <button class="btn" id="saveBodyLogBtn">Enregistrer</button>
-    </div>
-  </div>`;
-  document.getElementById('closeModalBtn').onclick = closeModal;
-  document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
-  document.getElementById('saveBodyLogBtn').onclick = async ()=>{
-    const num = id=>{ const v = parseFloat(document.getElementById(id).value); return isNaN(v)?undefined:v; };
-    let photo;
-    const file = document.getElementById('bwPhoto').files[0];
-    if(file){ try{ photo = await compressImage(file); }catch(e){} }
-    const weightKg = num('bwWeight');
-    if(!weightKg && !document.getElementById('bwFat').value && !photo){ toast('Renseigne au moins le poids'); return; }
-    state.bodyLogs.push({
-      id: uid(), date: new Date().toISOString(),
-      weightKg, bodyFatPct: num('bwFat'), waist: num('bwWaist'), chest: num('bwChest'),
-      hips: num('bwHips'), arms: num('bwArms'), thighs: num('bwThighs'), photo,
-    });
-    if(weightKg) state.settings.weightKg = weightKg;
-    saveState();
-    awardXp(10);
-    closeModal();
-    toast('Relevé enregistré 📏');
-    refreshCurrentView();
-  };
-}
-
-/* ============================================================
-   SOMMEIL & RÉCUPÉRATION
-   ============================================================ */
-function computeRecoveryScore(){
-  const logs = [...state.sleepLogs].sort((a,b)=> new Date(b.date)-new Date(a.date));
-  const last = logs[0];
-  let score = 70;
-  if(last){
-    score += (last.quality-3)*8;
-    score += (last.durationH-7)*5;
-    score -= (last.soreness-1)*6;
-    score += (last.energy-3)*5;
-    if(last.mood) score += (last.mood-3)*4;
-    if(last.hydration!=null && last.hydration<4) score -= 5;
-  }
-  const ratio = acwr();
-  if(ratio!=null){
-    if(ratio>1.5) score -= 20;
-    else if(ratio>1.3) score -= 10;
-    else if(ratio<0.8) score -= 5;
-  }
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-function recoveryLabel(score){
-  if(score>=80) return { text:'Excellente forme', cls:'good' };
-  if(score>=60) return { text:'Bonne récupération', cls:'good' };
-  if(score>=40) return { text:'Récupération moyenne', cls:'warn' };
-  return { text:'Fatigue élevée — repos conseillé', cls:'danger' };
-}
-
-function renderSommeil(){
-  const el = document.getElementById('santeContent');
-  const logs = [...state.sleepLogs].sort((a,b)=> new Date(b.date)-new Date(a.date));
-  const score = computeRecoveryScore();
-  const info = recoveryLabel(score);
-  const series = [...state.sleepLogs].sort((a,b)=> new Date(a.date)-new Date(b.date)).slice(-10);
-
-  el.innerHTML = `
-    <div class="stat-card">
-      <div class="stat-title">Score de récupération</div>
-      <div class="recovery-score ${info.cls}">${score}<span>/100</span></div>
-      <div class="acwr-badge ${info.cls}">${info.text}</div>
-    </div>
-    ${series.length>=2 ? `<div class="stat-card"><div class="stat-title">Durée de sommeil (h)</div>${lineChart(series.map(l=>l.durationH), series.map(l=>fmtDate(l.date)), 'var(--muscu)', 'h')}</div>` : ''}
-    <button class="btn" id="addSleepLogBtn">+ Enregistrer une nuit</button>
-    <h3 class="section-title">Historique</h3>
-    <div class="history-list">
-      ${logs.length ? logs.map(l=>`
-        <div class="hist-item">
-          <div class="hist-top">
-            <div class="hist-title">${Math.round(l.durationH*10)/10}h de sommeil</div>
-            <div class="hist-date">${fmtDate(l.date)}</div>
-          </div>
-          <div class="hist-detail">Qualité ${'⭐'.repeat(l.quality)} · Courbatures ${'💥'.repeat(l.soreness)} · Énergie ${'⚡'.repeat(l.energy)}${l.mood?' · Humeur '+'🙂'.repeat(l.mood):''}
-          ${(l.hydration!=null || l.hrv!=null) ? '<br>'+[l.hydration!=null?`💧 ${l.hydration} verres`:null, l.hrv!=null?`HRV ${l.hrv}ms`:null].filter(Boolean).join(' · ') : ''}
-          ${l.notes? '<br>'+l.notes:''}</div>
-        </div>`).join('') : `<div class="hist-empty">Aucune nuit enregistrée pour l'instant.</div>`}
-    </div>
-  `;
-  document.getElementById('addSleepLogBtn').onclick = openSleepLogModal;
-}
-
-function ratingRowHtml(id, label){
-  return `<div class="field">
-    <label>${label}</label>
-    <div class="rpe-row" id="${id}Row">${[1,2,3,4,5].map(n=>`<button type="button" class="rpe-btn" data-v="${n}">${n}</button>`).join('')}</div>
-  </div>`;
-}
-function wireRatingRow(id, onChange){
-  let val = 0;
-  document.getElementById(id+'Row').querySelectorAll('.rpe-btn').forEach(btn=>{
-    btn.onclick = ()=>{
-      val = parseInt(btn.dataset.v);
-      document.getElementById(id+'Row').querySelectorAll('.rpe-btn').forEach(b=>b.classList.toggle('on', b===btn));
-      onChange(val);
-    };
-  });
-  return ()=>val;
-}
-
-function openSleepLogModal(){
-  const root = document.getElementById('modalRoot');
-  root.innerHTML = `<div class="modal-overlay" id="overlay">
-    <div class="modal-sheet">
-      <div class="modal-header">
-        <div class="modal-title">Enregistrer une nuit</div>
-        <button class="modal-close" id="closeModalBtn">✕</button>
-      </div>
-      <div class="field"><label>Durée de sommeil (h)</label><input type="number" step="0.1" id="slDuration" value="7.5"></div>
-      ${ratingRowHtml('slQuality', 'Qualité du sommeil')}
-      ${ratingRowHtml('slSoreness', 'Courbatures (1=aucune, 5=intenses)')}
-      ${ratingRowHtml('slEnergy', "Niveau d'énergie")}
-      ${ratingRowHtml('slMood', 'Humeur / motivation')}
-      <div class="row2">
-        <div class="field"><label>Hydratation (verres d'eau)</label><input type="number" id="slHydration"></div>
-        <div class="field"><label>HRV (ms, optionnel)</label><input type="number" id="slHrv" placeholder="depuis ta montre"></div>
-      </div>
-      <div class="field"><label>Notes (optionnel)</label><textarea id="slNotes"></textarea></div>
-      <button class="btn" id="saveSleepBtn">Enregistrer</button>
-    </div>
-  </div>`;
-  document.getElementById('closeModalBtn').onclick = closeModal;
-  document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
-  const getQuality = wireRatingRow('slQuality', ()=>{});
-  const getSoreness = wireRatingRow('slSoreness', ()=>{});
-  const getEnergy = wireRatingRow('slEnergy', ()=>{});
-  const getMood = wireRatingRow('slMood', ()=>{});
-  document.getElementById('saveSleepBtn').onclick = ()=>{
-    const durationH = parseFloat(document.getElementById('slDuration').value)||0;
-    const quality = getQuality()||3, soreness = getSoreness()||1, energy = getEnergy()||3, mood = getMood()||3;
-    const hydration = parseFloat(document.getElementById('slHydration').value);
-    const hrv = parseFloat(document.getElementById('slHrv').value);
-    state.sleepLogs.push({
-      id: uid(), date: new Date().toISOString(), durationH, quality, soreness, energy, mood,
-      hydration: isNaN(hydration)? undefined : hydration,
-      hrv: isNaN(hrv)? undefined : hrv,
-      notes: document.getElementById('slNotes').value.trim(),
-    });
-    saveState();
-    awardXp(5);
-    closeModal();
-    toast('Nuit enregistrée 😴');
-    refreshCurrentView();
-  };
-}
-
-/* ============================================================
    DASHBOARD — cartes de score (Accueil)
    ============================================================ */
 function caloriesBurnedForSession(s){
@@ -2641,22 +2340,16 @@ function caloriesBurnedToday(){
     .reduce((a,s)=> a+caloriesBurnedForSession(s), 0);
 }
 
-function buildCoachMessage(recovery, ratio, lastSleep){
+function buildCoachMessage(ratio){
   if(ratio!=null && ratio>1.5) return "⚠️ Ta charge d'entraînement a beaucoup augmenté récemment — envisage une séance allégée ou un jour de repos.";
-  if(recovery < 40) return '😴 Récupération basse. Priorise le sommeil aujourd\'hui et garde une séance légère si tu t\'entraînes.';
-  if(lastSleep && lastSleep.soreness>=4) return '💥 Courbatures marquées signalées — pense à bien t\'échauffer et écoute ton corps.';
-  if(recovery>=80) return '🔥 Excellente forme ! C\'est le bon moment pour pousser un peu plus fort.';
   if(ratio!=null && ratio<0.8) return '📉 Charge en baisse — tu peux augmenter progressivement le volume si tu te sens bien.';
   return '✅ Tout est équilibré. Suis le plan du jour normalement.';
 }
 
 function renderDashboardScores(){
   const el = document.getElementById('dashboardScores');
-  const recovery = computeRecoveryScore();
-  const recInfo = recoveryLabel(recovery);
   const ratio = acwr();
   const totals = macroTotals(mealsForDate(todayStr()));
-  const lastSleep = [...state.sleepLogs].sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
   const xp = state.gamification.xp;
   const level = levelFromXp(xp);
   const xpIntoLevel = xp - xpForLevel(level);
@@ -2665,12 +2358,8 @@ function renderDashboardScores(){
   const remaining = Math.round((state.nutrition.targets.calories||2000) - totals.calories);
 
   el.innerHTML = `
-    <div class="coach-msg">${buildCoachMessage(recovery, ratio, lastSleep)}</div>
+    <div class="coach-msg">${buildCoachMessage(ratio)}</div>
     <div class="dash-grid">
-      <div class="dash-card ${recInfo.cls}">
-        <div class="dash-val">${recovery}</div>
-        <div class="dash-label">Récupération</div>
-      </div>
       <div class="dash-card ${acwrLabel(ratio).cls}">
         <div class="dash-val">${ratio!=null? ratio.toFixed(1) : '—'}</div>
         <div class="dash-label">Charge (ACWR)</div>
@@ -2684,12 +2373,8 @@ function renderDashboardScores(){
         <div class="dash-label">kcal dépensées</div>
       </div>
       <div class="dash-card">
-        <div class="dash-val">${lastSleep&&lastSleep.energy? lastSleep.energy+'/5' : '—'}</div>
-        <div class="dash-label">Niveau d'énergie</div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-val">${lastSleep? (Math.round(lastSleep.durationH*10)/10)+'h' : '—'}</div>
-        <div class="dash-label">Sommeil dernière nuit</div>
+        <div class="dash-val">${state.gamification.streak}j</div>
+        <div class="dash-label">Série en cours</div>
       </div>
     </div>
     <div class="xp-row">
@@ -2793,38 +2478,196 @@ function finishOnboarding(){
 }
 
 /* ============================================================
+   ÉCRAN D'ACCUEIL — mantra & citation du jour
+   ============================================================ */
+const MANTRAS = [
+"Aujourd'hui je choisis de devenir plus forte qu'hier.","Mon corps est capable de bien plus que ce que je crois.",
+"Chaque répétition me rapproche de la femme que je veux devenir.","Je n'ai pas besoin d'être parfaite, j'ai juste besoin de commencer.",
+"La discipline d'aujourd'hui est la liberté de demain.","Je respecte mon corps en le faisant bouger.",
+"Ma force intérieure grandit à chaque séance.","Je suis fière du chemin que je parcours, pas seulement du résultat.",
+"Mon énergie du jour est un cadeau que je m'offre.","Je choisis la constance plutôt que la perfection.",
+"Chaque pas compte, même le plus petit.","Je suis exactement là où je dois être dans mon parcours.",
+"Ma détermination est plus forte que mes excuses.","Je transforme la fatigue en motivation.",
+"Mon corps me porte, je le remercie en le faisant progresser.","Je deviens plus forte à chaque défi que je relève.",
+"La femme que je deviens mérite tous mes efforts.","Je choisis l'action plutôt que le doute.",
+"Ma confiance se construit une séance à la fois.","Je célèbre chaque petite victoire du quotidien.",
+"Rien ne peut arrêter une femme déterminée.","Je suis capable de recommencer autant de fois qu'il le faut.",
+"Mon corps est mon allié, pas mon ennemi.","Je cultive la patience envers moi-même.",
+"Chaque goutte de sueur est une preuve de mon engagement.","Je me choisis, aujourd'hui et chaque jour.",
+"Ma progression n'appartient qu'à moi.","Je suis plus résiliente que je ne le pense.",
+"L'effort d'aujourd'hui écrit la force de demain.","Je me nourris de discipline et de douceur à la fois.",
+"Ma volonté est mon plus bel atout.","Je fais de mon mieux, et c'est suffisant.",
+"Je grandis dans l'inconfort, pas dans la facilité.","Chaque séance est un acte d'amour envers moi-même.",
+"Je suis la source de ma propre motivation.","J'avance à mon rythme, sans me comparer.",
+"Mon corps se transforme parce que je crois en lui.","Je suis capable de tenir mes engagements envers moi-même.",
+"La régularité est ma plus grande force.","Je choisis de me sentir puissante aujourd'hui.",
+"Mes efforts d'aujourd'hui façonnent la femme de demain.","Je respire, je me recentre, et j'avance.",
+"Ma détermination ne dépend pas de mon humeur.","Je suis fière de me montrer jusqu'au bout.",
+"Chaque entraînement renforce mon corps et mon esprit.","Je transforme mes doutes en énergie positive.",
+"Je suis capable de dépasser mes propres limites.","Mon corps mérite ma bienveillance, pas ma sévérité.",
+"Je construis ma force un jour à la fois.","Je choisis de croire en mon potentiel.",
+"Aujourd'hui, je me dépasse avec le sourire.","Ma progression est un cadeau que je m'offre chaque jour.",
+"Je suis capable de grandes choses, une étape à la fois.","Ma féminité et ma force ne font qu'une.",
+"Je m'autorise à être fière de moi.","Rien ne vaut la satisfaction d'avoir tenu bon.",
+"Je fais de chaque séance une victoire personnelle.","Mon énergie attire les bonnes choses dans ma vie.",
+"Je choisis la version de moi qui ne renonce pas.","Chaque jour est une nouvelle occasion de me surpasser.",
+"Je suis plus déterminée que mes doutes.","Ma discipline aujourd'hui construit ma liberté demain.",
+"Je célèbre mon corps pour tout ce qu'il accomplit.","J'avance avec grâce et détermination.",
+"Ma force vient de l'intérieur, pas des autres.","Je transforme chaque obstacle en tremplin.",
+"Je mérite de me sentir bien dans mon corps.","Ma persévérance parle plus fort que mes excuses.",
+"Je choisis d'être douce avec moi-même et exigeante avec mes objectifs.","Chaque effort investi aujourd'hui me rapproche de mes rêves.",
+"Je suis une femme qui se relève, toujours.","Mon corps est le reflet de ma discipline et de mon amour-propre.",
+"Je grandis à travers chaque défi que je choisis d'affronter.","Aujourd'hui, je choisis le mouvement plutôt que l'immobilité.",
+"Ma volonté façonne mon avenir.","Je suis reconnaissante pour ce que mon corps me permet de faire.",
+"Chaque séance me rapproche de la meilleure version de moi-même.","Je choisis la confiance plutôt que la comparaison.",
+"Mon rythme est le bon rythme.","Je suis capable d'aimer l'effort autant que le résultat.",
+"Ma force tranquille inspire les autres autant que moi-même.","Je fais de la discipline un acte d'amour, pas de punition.",
+"Chaque respiration profonde me ramène à ma détermination.","Je suis plus forte que la version de moi d'hier.",
+"Mon corps se souvient de chaque victoire, même petite.","Je choisis d'avancer même quand c'est difficile.",
+"Ma détermination est silencieuse mais inébranlable.","Je transforme ma fatigue en fierté.",
+"Aujourd'hui, je fais un pas de plus vers mes objectifs.","Je suis maîtresse de mes choix et de mon énergie.",
+"Ma progression se mesure en constance, pas en perfection.","Je m'engage envers moi-même avant tout.",
+"Chaque entraînement est une déclaration de confiance en moi.","Je choisis de nourrir mon corps et mon esprit avec soin.",
+"Ma force intérieure ne demande la permission de personne.","Je suis capable de tenir mes promesses envers moi-même.",
+"Chaque jour d'effort ajoute une pierre à mon édifice.","Je respecte mon repos autant que mon travail.",
+"Ma détermination grandit à chaque difficulté surmontée.","Je choisis d'être fière de mon parcours, pas seulement de la ligne d'arrivée.",
+"Mon énergie du matin façonne ma journée entière.","Je suis une femme qui avance, avec ou sans motivation parfaite.",
+"Chaque geste sportif est un cadeau que je m'offre.","Je crois en la force que je construis, séance après séance.",
+"Ma discipline d'aujourd'hui est un cadeau pour la femme de demain.","Je choisis la persévérance plutôt que la perfection immédiate.",
+"Mon corps est capable de s'adapter, de grandir, de guérir.","Je m'autorise à être fière, même des petites victoires.",
+"Chaque séance renforce ma confiance autant que mes muscles.","Je suis en train de devenir la femme forte que j'admire.",
+"Ma volonté est plus grande que mes doutes du matin.","Je choisis de me traiter avec la même bienveillance que j'offre aux autres.",
+"Aujourd'hui, je fais preuve de courage en me présentant.","Ma force ne se mesure pas seulement en kilos soulevés.",
+"Je grandis en dehors de ma zone de confort.","Je suis fière de chaque effort, visible ou invisible.",
+"Ma détermination construit la vie que je veux vivre.","Je choisis d'écouter mon corps sans jamais abandonner mes objectifs.",
+"Chaque victoire, même minime, mérite d'être célébrée.","Je suis la preuve vivante que la constance fonctionne.",
+"Mon énergie intérieure ne dépend pas des circonstances extérieures.","Je transforme chaque doute en une raison supplémentaire d'essayer.",
+"Ma force et ma douceur coexistent parfaitement.","Je choisis de célébrer mon corps plutôt que de le critiquer.",
+"Chaque jour, je deviens un peu plus la femme que je veux être.","Ma discipline personnelle est mon plus grand acte de liberté.",
+"Je suis capable d'affronter ce que cette journée m'apporte.","Mon engagement envers moi-même ne faiblit pas.",
+"Je choisis la version de moi qui se donne une chance chaque jour.","Aujourd'hui, je marche fièrement vers mes objectifs.",
+];
+
+const QUOTES = [
+"Chaque entraînement construit la femme que tu rêves d'être.","La force ne vient pas du corps, elle vient de la volonté.",
+"Ce n'est pas facile, mais ça vaut la peine.","Le corps atteint ce que l'esprit croit possible.",
+"Les grandes réussites commencent par de petites décisions quotidiennes.","La discipline est le pont entre les objectifs et les résultats.",
+"Tu n'as pas besoin d'être extraordinaire, juste constante.","Chaque goutte de sueur est un pas vers la meilleure version de toi-même.",
+"Le progrès, pas la perfection.","Ton seul concurrent, c'est la personne que tu étais hier.",
+"La motivation te lance, l'habitude te porte.","On ne regrette jamais une séance, seulement celles qu'on a sautées.",
+"La force naît de la lutte, pas du confort.","Fais-le pour la version de toi qui te remerciera plus tard.",
+"Le succès est la somme de petits efforts répétés jour après jour.","Ton corps peut presque tout, c'est ton esprit qu'il faut convaincre.",
+"Une femme forte se relève, encore et encore.","La confiance se construit par l'action, pas par l'attente.",
+"Il n'y a pas de raccourci vers un endroit qui vaut le détour.","Chaque jour est une nouvelle chance de recommencer.",
+"Le plus dur n'est pas de commencer, c'est de continuer.","Ta seule limite, c'est celle que tu acceptes.",
+"On ne devient pas fort en restant dans sa zone de confort.","Les excuses ne construisent rien, les efforts construisent tout.",
+"La beauté d'une femme se voit dans sa détermination.","Rien de grandiose n'a jamais été accompli sans enthousiasme.",
+"Prends soin de ton corps, c'est le seul endroit où tu es obligée de vivre.","La patience et la persévérance ont un effet magique.",
+"Chaque petite victoire compte, célèbre-la.","La vraie force, c'est de continuer quand personne ne regarde.",
+"Ce que tu fais aujourd'hui peut améliorer tous tes lendemains.","Le changement demande de l'effort, mais rester pareil aussi.",
+"Sois plus forte que ta meilleure excuse.","Une femme déterminée est une force de la nature.",
+"Les rêves n'ont pas de date d'expiration, respire et recommence.","On récolte toujours ce que l'on a semé avec constance.",
+"Il n'y a pas d'ascenseur vers le succès, il faut prendre les escaliers.","La discipline, c'est choisir entre ce que tu veux maintenant et ce que tu veux vraiment.",
+"Ta force intérieure est plus puissante que n'importe quelle difficulté.","Le corps accomplit ce que l'esprit s'autorise à croire.",
+"Chaque séance est un dépôt sur ton compte de confiance en toi.","Les jours difficiles construisent les femmes fortes.",
+"Ne t'arrête pas quand tu es fatiguée, arrête-toi quand tu as fini.","Le succès commence toujours par la volonté de commencer.",
+"Rien ne pousse dans la zone de confort.","Sois la raison pour laquelle quelqu'un croit encore en la force des femmes.",
+"Ce que tu penses, tu le deviens ; ce que tu ressens, tu l'attires.","Une graine de discipline plantée chaque jour devient une forêt de résultats.",
+"La douleur d'aujourd'hui est la force de demain.","On ne perd jamais, on apprend seulement.",
+"Le plus grand risque est de ne jamais essayer.","Ta détermination d'aujourd'hui écrit ton histoire de demain.",
+"Il vaut mieux avancer lentement que ne pas avancer du tout.","Le corps humain est la seule machine qui s'améliore avec l'usage.",
+"Aime le processus, pas seulement le résultat.","Une femme qui se lève tôt pour s'entraîner a déjà gagné sa journée.",
+"La motivation ne dure pas, mais les habitudes si.","Fais confiance au processus, les résultats suivent toujours.",
+"Ton avenir est créé par ce que tu fais aujourd'hui, pas demain.","La croissance commence à la fin de ta zone de confort.",
+"Aucun effort sincère n'est jamais perdu.","Chaque championne a été un jour une débutante qui a refusé d'abandonner.",
+"Le courage, ce n'est pas l'absence de peur, c'est d'agir malgré elle.","Investis en toi, c'est le placement le plus rentable qui existe.",
+"Une femme forte inspire d'autres femmes à devenir fortes.","Ce qui ne te tue pas te muscle.",
+"Ne compare jamais ton chapitre 1 au chapitre 20 de quelqu'un d'autre.","Les résultats arrivent à celles qui continuent malgré la lenteur du progrès.",
+"La constance transforme l'ordinaire en extraordinaire.","Rien ne remplace le travail acharné, pas même le talent.",
+"Un petit progrès chaque jour finit par créer de grands résultats.","Sois assez forte pour te relever et assez douce pour y croire.",
+"Le meilleur moment pour commencer, c'était hier ; le deuxième meilleur, c'est maintenant.","Ta seule tâche est de te battre pour la vie que tu veux.",
+"On ne peut pas revenir en arrière, mais on peut recommencer maintenant.","Deviens la meilleure version de toi-même, pas une copie de quelqu'un d'autre.",
+"L'énergie que tu mets dans ton corps revient toujours vers toi.","Un rêve sans action reste juste un rêve.",
+"La force que tu montres cache souvent une bataille que personne ne voit.","Il n'existe pas d'échec, seulement des retours d'expérience.",
+"Chaque femme forte a commencé par un simple premier pas.","La vraie compétition est intérieure.",
+"Fais aujourd'hui ce que ton futur toi te remerciera d'avoir fait.","La transformation commence toujours dans la tête, avant le corps.",
+"Sois fière de la distance parcourue, pas seulement du chemin restant.","Rien ne vaut la fierté ressentie après un effort honnête.",
+"Ta discipline parle plus fort que tes doutes.","On ne devient pas plus forte en restant immobile.",
+"Le progrès silencieux est souvent le plus puissant.","Chaque jour est une occasion de se prouver quelque chose à soi-même.",
+"La force se construit dans la répétition, pas dans la perfection.","Un esprit fort porte un corps fort.",
+"Il n'y a pas de mauvais jour pour recommencer.","On ne peut pas tout contrôler, mais on peut contrôler son effort.",
+"La beauté du progrès, c'est qu'il ne s'arrête jamais si on continue.","Choisis-toi, encore et encore.",
+"Ta force est plus grande que tes excuses les plus convaincantes.","Le respect de soi commence par tenir ses propres engagements.",
+"On récolte la confiance en soi une action à la fois.","Les femmes fortes ne naissent pas ainsi, elles le deviennent.",
+"Il n'est jamais trop tard pour devenir celle que tu veux être.","Le succès, c'est tomber sept fois et se relever huit.",
+"Ta seule obligation est envers la personne que tu veux devenir.","Le mouvement est la meilleure médecine pour l'esprit et le corps.",
+"Une petite discipline quotidienne vaut mieux qu'une grande motivation ponctuelle.","La confiance se construit en tenant les promesses qu'on se fait.",
+"Chaque respiration est une nouvelle chance de recommencer.","On ne peut pas attendre l'inspiration, il faut aller la chercher en bougeant.",
+"Les efforts que personne ne voit sont souvent les plus importants.","La force intérieure ne fait jamais de bruit.",
+"Deviens l'énergie que tu veux attirer.","Un jour à la fois, une séance à la fois, une victoire à la fois.",
+"Rien de bon n'est jamais venu de rester dans sa zone de confort.","L'estime de soi se construit par des preuves, pas par des promesses.",
+"Chaque femme qui avance ouvre un chemin pour celles qui suivent.","Le corps oublie la douleur, mais jamais la fierté.",
+"La discipline est un acte d'amour envers son futur soi.","Rien ne vaut la sensation d'avoir tenu une promesse envers soi-même.",
+"Le courage de commencer est déjà la moitié du chemin.","Chaque pas, même petit, te rapproche de ton objectif.",
+"La force ne se mesure pas en poids soulevé, mais en persévérance.","On ne construit pas une femme forte en un jour, mais chaque jour compte.",
+"La meilleure version de toi t'attend de l'autre côté de l'effort.","Ta détermination aujourd'hui est le socle de ta confiance demain.",
+"Rien ne remplace le pouvoir d'une décision prise avec conviction.","La progression est parfois invisible, mais jamais absente si tu persévères.",
+"On ne perd rien à essayer, on perd tout à ne jamais commencer.","La lumière que tu cherches est déjà en toi, il suffit de la nourrir.",
+"Chaque objectif atteint commence par la décision de ne pas abandonner.","Sois la femme qui inspire, en commençant par t'inspirer toi-même.",
+];
+
+function dayIndex(){ return Math.floor(Date.now()/86400000); }
+function todaysMantra(){ return MANTRAS[dayIndex() % MANTRAS.length]; }
+function todaysQuote(){ return QUOTES[(dayIndex()*7 + 3) % QUOTES.length]; }
+
+function timeOfDayBucket(){
+  const h = new Date().getHours();
+  if(h>=5 && h<12) return 'morning';
+  if(h>=12 && h<18) return 'afternoon';
+  return 'evening';
+}
+
+function renderGreetingScreen(){
+  const screen = document.getElementById('greetingScreen');
+  const bucket = timeOfDayBucket();
+  screen.className = 'greeting-screen tod-' + bucket;
+  const name = state.settings.name || 'championne';
+  const emoji = bucket==='morning' ? '☀️' : bucket==='afternoon' ? '🌤️' : '🌙';
+  document.getElementById('greetingHello').textContent = `Bonjour ${name} ${emoji}`;
+  document.getElementById('greetingMantra').textContent = todaysMantra();
+  document.getElementById('greetingQuote').textContent = todaysQuote();
+}
+
+/* ============================================================
    NAVIGATION / INIT
    ============================================================ */
 let currentView='accueil';
-let entTab='historique';
-let santeTab='nutrition';
-const TITLES = { accueil:"Aujourd'hui", entrainement:'Entraînement', sante:'Santé', reglages:'Réglages' };
+let entTab='today';
+const TITLES = { accueil:"", entrainement:'Entraînement', nutrition:'Nutrition', reglages:'Réglages' };
 
 function switchView(view){
   currentView = view;
   document.querySelectorAll('.view').forEach(v=> v.classList.toggle('hidden', v.id!=='view-'+view));
   document.querySelectorAll('.navbtn').forEach(b=> b.classList.toggle('active', b.dataset.view===view));
   document.getElementById('topbarTitle').textContent = TITLES[view];
+  document.querySelector('.topbar').classList.toggle('topbar-transparent', view==='accueil');
   refreshCurrentView();
 }
 function refreshCurrentView(){
-  if(currentView==='accueil') renderAccueil();
+  if(currentView==='accueil') renderGreetingScreen();
   else if(currentView==='entrainement') renderEntrainement();
-  else if(currentView==='sante') renderSante();
+  else if(currentView==='nutrition') renderNutrition();
   else if(currentView==='reglages') renderReglages();
 }
 function renderAll(){ refreshCurrentView(); }
 
 function renderEntrainement(){
+  document.getElementById('entToday').classList.toggle('hidden', entTab!=='today');
   document.getElementById('entHistorique').classList.toggle('hidden', entTab!=='historique');
   document.getElementById('entStats').classList.toggle('hidden', entTab!=='stats');
-  if(entTab==='historique') renderHistorique(); else renderStats();
-}
-
-function renderSante(){
-  if(santeTab==='nutrition') renderNutrition();
-  else if(santeTab==='corps') renderCorps();
-  else renderSommeil();
+  if(entTab==='today') renderEntrainementToday();
+  else if(entTab==='historique') renderHistorique();
+  else renderStats();
 }
 
 function init(){
@@ -2854,13 +2697,6 @@ function init(){
     document.querySelectorAll('#statsTabs .chip').forEach(c=>c.classList.toggle('active', c===chip));
     renderStats();
   });
-  document.getElementById('santeTabs').addEventListener('click', e=>{
-    const chip = e.target.closest('.chip'); if(!chip) return;
-    santeTab = chip.dataset.sante;
-    document.querySelectorAll('#santeTabs .chip').forEach(c=>c.classList.toggle('active', c===chip));
-    renderSante();
-  });
-
   if(!state.settings.onboarded){
     startOnboarding();
   } else {
