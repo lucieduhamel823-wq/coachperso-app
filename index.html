@@ -11,7 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="stylesheet" href="styles.css?v=9">
+<link rel="stylesheet" href="styles.css?v=13">
 </head>
 <body>
 
@@ -43,15 +43,15 @@
       </div>
     </section>
 
-    <!-- ENTRAINEMENT (aujourd'hui + historique + stats) -->
+    <!-- ENTRAINEMENT (mes entraînements + historique + nouvelle séance) -->
     <section class="view hidden" id="view-entrainement">
       <div class="filter-row" id="entrainementTabs">
-        <button class="chip active" data-etab="today">Aujourd'hui</button>
-        <button class="chip" data-etab="historique">Historique</button>
-        <button class="chip" data-etab="stats">Statistiques</button>
+        <button class="chip active" data-etab="mes">Mes entraînements</button>
+        <button class="chip" data-etab="historique">Historique des séances</button>
+        <button class="chip" data-etab="nouvelle">Nouvelle séance</button>
       </div>
 
-      <div id="entToday">
+      <div id="entMes">
         <div id="dashboardScores"></div>
         <div id="weekProgress" class="card week-progress"></div>
         <div id="nextSessionCard"></div>
@@ -60,6 +60,7 @@
       </div>
 
       <div id="entHistorique" class="hidden">
+        <div class="field"><input type="text" id="histSearchInput" placeholder="Rechercher : exercice, date, nom de séance..."></div>
         <div class="filter-row" id="histFilters">
           <button class="chip active" data-filter="all">Tout</button>
           <button class="chip" data-filter="muscu">Muscu</button>
@@ -68,15 +69,8 @@
         <div id="historyList" class="history-list"></div>
       </div>
 
-      <div id="entStats" class="hidden">
-        <div class="stats-tabs" id="statsTabs">
-          <button class="chip active" data-stat="volume">Volume muscu</button>
-          <button class="chip" data-stat="exo">Progression exo</button>
-          <button class="chip" data-stat="course">Course</button>
-          <button class="chip" data-stat="records">Records & VMA</button>
-          <button class="chip" data-stat="insights">Insights</button>
-        </div>
-        <div id="statsContent"></div>
+      <div id="entNouvelle" class="hidden">
+        <div id="nouvelleSeanceContent"></div>
       </div>
     </section>
 
@@ -147,6 +141,6 @@
 <div id="modalRoot"></div>
 
 <script src="vendor/zxing.min.js" defer></script>
-<script src="app.js?v=9" defer></script>
+<script src="app.js?v=13" defer></script>
 </body>
 </html>

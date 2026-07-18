@@ -1,9 +1,9 @@
-const CACHE_NAME = 'coachperso-v9';
+const CACHE_NAME = 'coachperso-v13';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=9',
-  './app.js?v=9',
+  './styles.css?v=13',
+  './app.js?v=13',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',

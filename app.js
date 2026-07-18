@@ -14,99 +14,108 @@ const STORAGE_KEY = 'coachperso_state_v1';
    à définir un poids exercice par exercice. */
 const EXERCISES = [
   // Poitrine
-  { id:'developpe_couche', name:'Développé couché barre', group:'Poitrine', kind:'weighted', tier:'heavy_compound' },
-  { id:'developpe_couche_halteres', name:'Développé couché haltères', group:'Poitrine', kind:'weighted', tier:'medium_compound' },
-  { id:'developpe_incline', name:'Développé incliné haltères', group:'Poitrine', kind:'weighted', tier:'medium_compound' },
-  { id:'developpe_incline_barre', name:'Développé incliné barre', group:'Poitrine', kind:'weighted', tier:'medium_compound' },
-  { id:'developpe_decline', name:'Développé décliné barre', group:'Poitrine', kind:'weighted', tier:'medium_compound' },
-  { id:'ecarte_couche', name:'Écarté couché haltères', group:'Poitrine', kind:'weighted', tier:'isolation_small' },
-  { id:'ecarte_poulie', name:'Écarté poulie vis-à-vis', group:'Poitrine', kind:'weighted', tier:'isolation_small' },
-  { id:'pec_deck', name:'Pec deck / Butterfly', group:'Poitrine', kind:'weighted', tier:'isolation_small' },
-  { id:'pullover', name:'Pull-over haltère', group:'Poitrine', kind:'weighted', tier:'isolation_large' },
-  { id:'dips', name:'Dips (pectoraux)', group:'Poitrine', kind:'bodyweight_hard' },
-  { id:'pompes', name:'Pompes', group:'Poitrine', kind:'bodyweight' },
+  { id:'developpe_couche', name:'Développé couché barre', nameEn:'Barbell Bench Press', group:'Poitrine', kind:'weighted', tier:'heavy_compound', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Pectoraux'], secondaryMuscles:['Triceps','Épaules antérieures'] },
+  { id:'developpe_couche_halteres', name:'Développé couché haltères', nameEn:'Dumbbell Bench Press', group:'Poitrine', kind:'weighted', tier:'medium_compound', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Pectoraux'], secondaryMuscles:['Triceps','Épaules antérieures'] },
+  { id:'developpe_incline', name:'Développé incliné haltères', nameEn:'Incline Dumbbell Press', group:'Poitrine', kind:'weighted', tier:'medium_compound', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Pectoraux (haut)'], secondaryMuscles:['Épaules antérieures','Triceps'] },
+  { id:'developpe_incline_barre', name:'Développé incliné barre', nameEn:'Incline Barbell Press', group:'Poitrine', kind:'weighted', tier:'medium_compound', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Pectoraux (haut)'], secondaryMuscles:['Épaules antérieures','Triceps'] },
+  { id:'developpe_decline', name:'Développé décliné barre', nameEn:'Decline Barbell Press', group:'Poitrine', kind:'weighted', tier:'medium_compound', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Pectoraux (bas)'], secondaryMuscles:['Triceps'] },
+  { id:'ecarte_couche', name:'Écarté couché haltères', nameEn:'Dumbbell Fly', group:'Poitrine', kind:'weighted', tier:'isolation_small', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Pectoraux'], secondaryMuscles:['Épaules antérieures'] },
+  { id:'ecarte_poulie', name:'Écarté poulie vis-à-vis', nameEn:'Cable Crossover', group:'Poitrine', kind:'weighted', tier:'isolation_small', equipment:'Poulie', difficulty:'intermédiaire', primaryMuscles:['Pectoraux'], secondaryMuscles:['Épaules antérieures'] },
+  { id:'pec_deck', name:'Pec deck / Butterfly', nameEn:'Pec Deck Machine', group:'Poitrine', kind:'weighted', tier:'isolation_small', equipment:'Machine', difficulty:'débutant', primaryMuscles:['Pectoraux'], secondaryMuscles:[] },
+  { id:'machine_convergente', name:'Machine convergente', nameEn:'Converging Chest Press Machine', group:'Poitrine', kind:'weighted', tier:'medium_compound', equipment:'Machine', difficulty:'débutant', primaryMuscles:['Pectoraux'], secondaryMuscles:['Triceps'] },
+  { id:'pullover', name:'Pull-over haltère', nameEn:'Dumbbell Pullover', group:'Poitrine', kind:'weighted', tier:'isolation_large', equipment:'Haltères', difficulty:'intermédiaire', primaryMuscles:['Pectoraux'], secondaryMuscles:['Dorsaux','Triceps'] },
+  { id:'dips', name:'Dips (pectoraux)', nameEn:'Chest Dips', group:'Poitrine', kind:'bodyweight_hard', equipment:'Poids du corps', difficulty:'intermédiaire', primaryMuscles:['Pectoraux (bas)'], secondaryMuscles:['Triceps','Épaules antérieures'] },
+  { id:'pompes', name:'Pompes', nameEn:'Push-Up', group:'Poitrine', kind:'bodyweight', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Pectoraux'], secondaryMuscles:['Triceps','Abdominaux'] },
 
   // Dos
-  { id:'solevede_terre', name:'Soulevé de terre', group:'Dos', kind:'weighted', tier:'heavy_compound' },
-  { id:'deadlift_roumain', name:'Soulevé de terre roumain', group:'Dos', kind:'weighted', tier:'heavy_compound' },
-  { id:'deadlift_sumo', name:'Soulevé de terre sumo', group:'Dos', kind:'weighted', tier:'heavy_compound' },
-  { id:'rowing_barre', name:'Rowing barre', group:'Dos', kind:'weighted', tier:'medium_compound' },
-  { id:'rowing_haltere', name:'Rowing haltère unilatéral', group:'Dos', kind:'weighted', tier:'medium_compound' },
-  { id:'rowing_tbar', name:'Rowing T-bar', group:'Dos', kind:'weighted', tier:'medium_compound' },
-  { id:'rowing_poulie', name:'Rowing poulie basse', group:'Dos', kind:'weighted', tier:'medium_compound' },
-  { id:'tirage_vertical', name:'Tirage vertical', group:'Dos', kind:'weighted', tier:'medium_compound' },
-  { id:'tractions', name:'Tractions pronation', group:'Dos', kind:'bodyweight_hard' },
-  { id:'tractions_supination', name:'Tractions supination', group:'Dos', kind:'bodyweight_hard' },
-  { id:'tractions_neutres', name:'Tractions prise neutre', group:'Dos', kind:'bodyweight_hard' },
-  { id:'hyperextension', name:'Hyperextensions lombaires', group:'Dos', kind:'bodyweight' },
-  { id:'shrug_barre', name:'Shrugs barre', group:'Dos', kind:'weighted', tier:'isolation_large' },
-  { id:'shrug_halteres', name:'Shrugs haltères', group:'Dos', kind:'weighted', tier:'isolation_large' },
-  { id:'face_pull', name:'Face pull', group:'Dos', kind:'weighted', tier:'isolation_small' },
-  { id:'good_morning', name:'Good morning', group:'Dos', kind:'weighted', tier:'medium_compound' },
+  { id:'solevede_terre', name:'Soulevé de terre', nameEn:'Deadlift', group:'Dos', kind:'weighted', tier:'heavy_compound', equipment:'Barre', difficulty:'avancé', primaryMuscles:['Lombaires','Ischio-jambiers','Fessiers'], secondaryMuscles:['Dorsaux','Trapèzes','Avant-bras'] },
+  { id:'deadlift_roumain', name:'Soulevé de terre roumain', nameEn:'Romanian Deadlift', group:'Dos', kind:'weighted', tier:'heavy_compound', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Ischio-jambiers','Fessiers'], secondaryMuscles:['Lombaires'] },
+  { id:'deadlift_sumo', name:'Soulevé de terre sumo', nameEn:'Sumo Deadlift', group:'Dos', kind:'weighted', tier:'heavy_compound', equipment:'Barre', difficulty:'avancé', primaryMuscles:['Fessiers','Ischio-jambiers'], secondaryMuscles:['Adducteurs','Lombaires'] },
+  { id:'rowing_barre', name:'Rowing barre', nameEn:'Barbell Row', group:'Dos', kind:'weighted', tier:'medium_compound', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Dorsaux','Trapèzes'], secondaryMuscles:['Biceps','Lombaires'] },
+  { id:'rowing_haltere', name:'Rowing haltère unilatéral', nameEn:'Single-Arm Dumbbell Row', group:'Dos', kind:'weighted', tier:'medium_compound', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Dorsaux'], secondaryMuscles:['Biceps','Trapèzes'] },
+  { id:'rowing_tbar', name:'Rowing T-bar', nameEn:'T-Bar Row', group:'Dos', kind:'weighted', tier:'medium_compound', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Dorsaux'], secondaryMuscles:['Biceps','Trapèzes'] },
+  { id:'rowing_poulie', name:'Rowing poulie basse', nameEn:'Seated Cable Row', group:'Dos', kind:'weighted', tier:'medium_compound', equipment:'Poulie', difficulty:'débutant', primaryMuscles:['Dorsaux'], secondaryMuscles:['Biceps','Trapèzes'] },
+  { id:'tirage_vertical', name:'Tirage vertical', nameEn:'Lat Pulldown', group:'Dos', kind:'weighted', tier:'medium_compound', equipment:'Poulie', difficulty:'débutant', primaryMuscles:['Dorsaux'], secondaryMuscles:['Biceps'] },
+  { id:'tractions', name:'Tractions pronation', nameEn:'Pull-Up', group:'Dos', kind:'bodyweight_hard', equipment:'Poids du corps', difficulty:'avancé', primaryMuscles:['Dorsaux'], secondaryMuscles:['Biceps','Trapèzes'] },
+  { id:'tractions_supination', name:'Tractions supination', nameEn:'Chin-Up', group:'Dos', kind:'bodyweight_hard', equipment:'Poids du corps', difficulty:'avancé', primaryMuscles:['Dorsaux','Biceps'], secondaryMuscles:['Trapèzes'] },
+  { id:'tractions_neutres', name:'Tractions prise neutre', nameEn:'Neutral-Grip Pull-Up', group:'Dos', kind:'bodyweight_hard', equipment:'Poids du corps', difficulty:'avancé', primaryMuscles:['Dorsaux'], secondaryMuscles:['Biceps','Avant-bras'] },
+  { id:'hyperextension', name:'Hyperextensions lombaires', nameEn:'Back Extension', group:'Dos', kind:'bodyweight', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Lombaires'], secondaryMuscles:['Fessiers','Ischio-jambiers'] },
+  { id:'shrug_barre', name:'Shrugs barre', nameEn:'Barbell Shrug', group:'Dos', kind:'weighted', tier:'isolation_large', equipment:'Barre', difficulty:'débutant', primaryMuscles:['Trapèzes'], secondaryMuscles:['Avant-bras'] },
+  { id:'shrug_halteres', name:'Shrugs haltères', nameEn:'Dumbbell Shrug', group:'Dos', kind:'weighted', tier:'isolation_large', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Trapèzes'], secondaryMuscles:['Avant-bras'] },
+  { id:'face_pull', name:'Face pull', nameEn:'Face Pull', group:'Dos', kind:'weighted', tier:'isolation_small', equipment:'Poulie', difficulty:'débutant', primaryMuscles:['Épaules postérieures'], secondaryMuscles:['Trapèzes','Dorsaux'] },
+  { id:'good_morning', name:'Good morning', nameEn:'Good Morning', group:'Dos', kind:'weighted', tier:'medium_compound', equipment:'Barre', difficulty:'avancé', primaryMuscles:['Lombaires','Ischio-jambiers'], secondaryMuscles:['Fessiers'] },
 
   // Jambes
-  { id:'squat', name:'Squat', group:'Jambes', kind:'weighted', tier:'heavy_compound' },
-  { id:'squat_avant', name:'Squat avant (front squat)', group:'Jambes', kind:'weighted', tier:'heavy_compound' },
-  { id:'squat_gobelet', name:'Squat gobelet', group:'Jambes', kind:'weighted', tier:'medium_compound' },
-  { id:'squat_bulgare', name:'Squat bulgare', group:'Jambes', kind:'weighted', tier:'medium_compound' },
-  { id:'presse_cuisses', name:'Presse à cuisses', group:'Jambes', kind:'weighted', tier:'heavy_compound' },
-  { id:'fentes', name:'Fentes haltères', group:'Jambes', kind:'weighted', tier:'medium_compound' },
-  { id:'fentes_marchees', name:'Fentes marchées', group:'Jambes', kind:'weighted', tier:'medium_compound' },
-  { id:'souleve_jambes_tendues', name:'Soulevé de terre jambes tendues', group:'Jambes', kind:'weighted', tier:'heavy_compound' },
-  { id:'leg_curl', name:'Leg curl', group:'Jambes', kind:'weighted', tier:'isolation_large' },
-  { id:'extension_quadriceps', name:'Extension quadriceps', group:'Jambes', kind:'weighted', tier:'isolation_large' },
-  { id:'hip_thrust', name:'Hip thrust', group:'Jambes', kind:'weighted', tier:'heavy_compound' },
-  { id:'mollets_debout', name:'Mollets debout', group:'Jambes', kind:'weighted', tier:'isolation_large' },
-  { id:'mollets_assis', name:'Mollets assis', group:'Jambes', kind:'weighted', tier:'isolation_large' },
-  { id:'adducteurs', name:'Adducteurs (machine)', group:'Jambes', kind:'weighted', tier:'isolation_large' },
-  { id:'abducteurs', name:'Abducteurs (machine)', group:'Jambes', kind:'weighted', tier:'isolation_large' },
-  { id:'step_up', name:'Step-up', group:'Jambes', kind:'weighted', tier:'medium_compound' },
-  { id:'fentes_bodyweight', name:'Fentes au poids du corps', group:'Jambes', kind:'bodyweight' },
-  { id:'glute_bridge', name:'Glute bridge', group:'Jambes', kind:'bodyweight' },
-  { id:'squat_saute', name:'Squat sauté', group:'Jambes', kind:'bodyweight' },
+  { id:'squat', name:'Squat', nameEn:'Back Squat', group:'Jambes', kind:'weighted', tier:'heavy_compound', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Quadriceps','Fessiers'], secondaryMuscles:['Ischio-jambiers','Lombaires'] },
+  { id:'squat_avant', name:'Squat avant (front squat)', nameEn:'Front Squat', group:'Jambes', kind:'weighted', tier:'heavy_compound', equipment:'Barre', difficulty:'avancé', primaryMuscles:['Quadriceps'], secondaryMuscles:['Fessiers','Abdominaux'] },
+  { id:'squat_gobelet', name:'Squat gobelet', nameEn:'Goblet Squat', group:'Jambes', kind:'weighted', tier:'medium_compound', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Quadriceps','Fessiers'], secondaryMuscles:['Abdominaux'] },
+  { id:'squat_bulgare', name:'Squat bulgare', nameEn:'Bulgarian Split Squat', group:'Jambes', kind:'weighted', tier:'medium_compound', equipment:'Haltères', difficulty:'intermédiaire', primaryMuscles:['Quadriceps','Fessiers'], secondaryMuscles:['Ischio-jambiers'] },
+  { id:'presse_cuisses', name:'Presse à cuisses', nameEn:'Leg Press', group:'Jambes', kind:'weighted', tier:'heavy_compound', equipment:'Machine', difficulty:'débutant', primaryMuscles:['Quadriceps','Fessiers'], secondaryMuscles:['Ischio-jambiers'] },
+  { id:'fentes', name:'Fentes haltères', nameEn:'Dumbbell Lunge', group:'Jambes', kind:'weighted', tier:'medium_compound', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Quadriceps','Fessiers'], secondaryMuscles:['Ischio-jambiers'] },
+  { id:'fentes_marchees', name:'Fentes marchées', nameEn:'Walking Lunge', group:'Jambes', kind:'weighted', tier:'medium_compound', equipment:'Haltères', difficulty:'intermédiaire', primaryMuscles:['Quadriceps','Fessiers'], secondaryMuscles:['Ischio-jambiers'] },
+  { id:'souleve_jambes_tendues', name:'Soulevé de terre jambes tendues', nameEn:'Stiff-Leg Deadlift', group:'Jambes', kind:'weighted', tier:'heavy_compound', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Ischio-jambiers'], secondaryMuscles:['Fessiers','Lombaires'] },
+  { id:'leg_curl', name:'Leg curl', nameEn:'Leg Curl', group:'Jambes', kind:'weighted', tier:'isolation_large', equipment:'Machine', difficulty:'débutant', primaryMuscles:['Ischio-jambiers'], secondaryMuscles:[] },
+  { id:'extension_quadriceps', name:'Extension quadriceps', nameEn:'Leg Extension', group:'Jambes', kind:'weighted', tier:'isolation_large', equipment:'Machine', difficulty:'débutant', primaryMuscles:['Quadriceps'], secondaryMuscles:[] },
+  { id:'mollets_debout', name:'Mollets debout', nameEn:'Standing Calf Raise', group:'Jambes', kind:'weighted', tier:'isolation_large', equipment:'Machine', difficulty:'débutant', primaryMuscles:['Mollets'], secondaryMuscles:[] },
+  { id:'mollets_assis', name:'Mollets assis', nameEn:'Seated Calf Raise', group:'Jambes', kind:'weighted', tier:'isolation_large', equipment:'Machine', difficulty:'débutant', primaryMuscles:['Mollets'], secondaryMuscles:[] },
+  { id:'step_up', name:'Step-up', nameEn:'Step-Up', group:'Jambes', kind:'weighted', tier:'medium_compound', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Quadriceps','Fessiers'], secondaryMuscles:['Ischio-jambiers'] },
+  { id:'fentes_bodyweight', name:'Fentes au poids du corps', nameEn:'Bodyweight Lunge', group:'Jambes', kind:'bodyweight', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Quadriceps','Fessiers'], secondaryMuscles:[] },
+  { id:'squat_saute', name:'Squat sauté', nameEn:'Jump Squat', group:'Jambes', kind:'bodyweight', equipment:'Poids du corps', difficulty:'intermédiaire', primaryMuscles:['Quadriceps','Fessiers'], secondaryMuscles:['Mollets'] },
+
+  // Fessiers
+  { id:'hip_thrust', name:'Hip Thrust', nameEn:'Barbell Hip Thrust', group:'Fessiers', kind:'weighted', tier:'heavy_compound', equipment:'Barre', difficulty:'débutant', primaryMuscles:['Fessiers'], secondaryMuscles:['Ischio-jambiers'] },
+  { id:'glute_bridge', name:'Glute bridge', nameEn:'Glute Bridge', group:'Fessiers', kind:'bodyweight', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Fessiers'], secondaryMuscles:['Ischio-jambiers'] },
+  { id:'abducteurs', name:'Abduction (machine)', nameEn:'Hip Abduction Machine', group:'Fessiers', kind:'weighted', tier:'isolation_large', equipment:'Machine', difficulty:'débutant', primaryMuscles:['Fessiers (moyen)'], secondaryMuscles:[] },
+  { id:'adducteurs', name:'Adduction (machine)', nameEn:'Hip Adduction Machine', group:'Fessiers', kind:'weighted', tier:'isolation_large', equipment:'Machine', difficulty:'débutant', primaryMuscles:['Adducteurs'], secondaryMuscles:[] },
+  { id:'kickback_fessier', name:'Kickback fessier poulie', nameEn:'Cable Glute Kickback', group:'Fessiers', kind:'weighted', tier:'isolation_small', equipment:'Poulie', difficulty:'débutant', primaryMuscles:['Fessiers'], secondaryMuscles:['Ischio-jambiers'] },
+  { id:'frog_pump', name:'Frog pump', nameEn:'Frog Pump', group:'Fessiers', kind:'bodyweight', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Fessiers'], secondaryMuscles:['Adducteurs'] },
 
   // Épaules
-  { id:'developpe_militaire', name:'Développé militaire barre', group:'Épaules', kind:'weighted', tier:'medium_compound' },
-  { id:'ohp_halteres', name:'Développé militaire haltères', group:'Épaules', kind:'weighted', tier:'medium_compound' },
-  { id:'arnold_press', name:'Développé Arnold', group:'Épaules', kind:'weighted', tier:'medium_compound' },
-  { id:'elevations_laterales', name:'Élévations latérales haltères', group:'Épaules', kind:'weighted', tier:'isolation_small' },
-  { id:'elevations_laterales_poulie', name:'Élévations latérales poulie', group:'Épaules', kind:'weighted', tier:'isolation_small' },
-  { id:'elevations_frontales', name:'Élévations frontales', group:'Épaules', kind:'weighted', tier:'isolation_small' },
-  { id:'oiseau', name:'Oiseau (rear delt fly)', group:'Épaules', kind:'weighted', tier:'isolation_small' },
-  { id:'rowing_menton', name:'Rowing menton', group:'Épaules', kind:'weighted', tier:'isolation_large' },
+  { id:'developpe_militaire', name:'Développé militaire barre', nameEn:'Barbell Overhead Press', group:'Épaules', kind:'weighted', tier:'medium_compound', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Épaules'], secondaryMuscles:['Triceps','Trapèzes'] },
+  { id:'ohp_halteres', name:'Développé militaire haltères', nameEn:'Dumbbell Shoulder Press', group:'Épaules', kind:'weighted', tier:'medium_compound', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Épaules'], secondaryMuscles:['Triceps'] },
+  { id:'arnold_press', name:'Développé Arnold', nameEn:'Arnold Press', group:'Épaules', kind:'weighted', tier:'medium_compound', equipment:'Haltères', difficulty:'intermédiaire', primaryMuscles:['Épaules'], secondaryMuscles:['Triceps'] },
+  { id:'elevations_laterales', name:'Élévations latérales haltères', nameEn:'Dumbbell Lateral Raise', group:'Épaules', kind:'weighted', tier:'isolation_small', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Épaules (moyen)'], secondaryMuscles:[] },
+  { id:'elevations_laterales_poulie', name:'Élévations latérales poulie', nameEn:'Cable Lateral Raise', group:'Épaules', kind:'weighted', tier:'isolation_small', equipment:'Poulie', difficulty:'débutant', primaryMuscles:['Épaules (moyen)'], secondaryMuscles:[] },
+  { id:'elevations_frontales', name:'Élévations frontales', nameEn:'Front Raise', group:'Épaules', kind:'weighted', tier:'isolation_small', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Épaules antérieures'], secondaryMuscles:[] },
+  { id:'oiseau', name:'Oiseau (rear delt fly)', nameEn:'Rear Delt Fly', group:'Épaules', kind:'weighted', tier:'isolation_small', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Épaules postérieures'], secondaryMuscles:['Trapèzes'] },
+  { id:'rowing_menton', name:'Rowing menton', nameEn:'Upright Row', group:'Épaules', kind:'weighted', tier:'isolation_large', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Épaules (moyen)','Trapèzes'], secondaryMuscles:['Biceps'] },
 
   // Bras — Biceps
-  { id:'curl_biceps', name:'Curl biceps barre', group:'Bras', kind:'weighted', tier:'isolation_small' },
-  { id:'curl_biceps_halteres', name:'Curl biceps haltères', group:'Bras', kind:'weighted', tier:'isolation_small' },
-  { id:'curl_marteau', name:'Curl marteau', group:'Bras', kind:'weighted', tier:'isolation_small' },
-  { id:'curl_pupitre', name:'Curl pupitre', group:'Bras', kind:'weighted', tier:'isolation_small' },
-  { id:'curl_concentre', name:'Curl concentré', group:'Bras', kind:'weighted', tier:'isolation_small' },
-  { id:'curl_poulie', name:'Curl poulie', group:'Bras', kind:'weighted', tier:'isolation_small' },
+  { id:'curl_biceps', name:'Curl biceps barre', nameEn:'Barbell Curl', group:'Bras', kind:'weighted', tier:'isolation_small', equipment:'Barre', difficulty:'débutant', primaryMuscles:['Biceps'], secondaryMuscles:['Avant-bras'] },
+  { id:'curl_biceps_halteres', name:'Curl biceps haltères', nameEn:'Dumbbell Curl', group:'Bras', kind:'weighted', tier:'isolation_small', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Biceps'], secondaryMuscles:['Avant-bras'] },
+  { id:'curl_marteau', name:'Curl marteau', nameEn:'Hammer Curl', group:'Bras', kind:'weighted', tier:'isolation_small', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Biceps','Avant-bras'], secondaryMuscles:[] },
+  { id:'curl_pupitre', name:'Curl pupitre', nameEn:'Preacher Curl', group:'Bras', kind:'weighted', tier:'isolation_small', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Biceps'], secondaryMuscles:[] },
+  { id:'curl_concentre', name:'Curl concentré', nameEn:'Concentration Curl', group:'Bras', kind:'weighted', tier:'isolation_small', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Biceps'], secondaryMuscles:[] },
+  { id:'curl_poulie', name:'Curl poulie', nameEn:'Cable Curl', group:'Bras', kind:'weighted', tier:'isolation_small', equipment:'Poulie', difficulty:'débutant', primaryMuscles:['Biceps'], secondaryMuscles:[] },
 
   // Bras — Triceps
-  { id:'extension_triceps', name:'Extension triceps poulie', group:'Bras', kind:'weighted', tier:'isolation_small' },
-  { id:'extension_triceps_nuque', name:'Extension triceps nuque', group:'Bras', kind:'weighted', tier:'isolation_small' },
-  { id:'barre_au_front', name:'Barre au front', group:'Bras', kind:'weighted', tier:'isolation_small' },
-  { id:'triceps_dips_banc', name:'Dips triceps (banc)', group:'Bras', kind:'bodyweight' },
-  { id:'triceps_kickback', name:'Kickback triceps', group:'Bras', kind:'weighted', tier:'isolation_small' },
-  { id:'developpe_serre', name:'Développé couché prise serrée', group:'Bras', kind:'weighted', tier:'medium_compound' },
+  { id:'extension_triceps', name:'Extension triceps poulie', nameEn:'Triceps Pushdown', group:'Bras', kind:'weighted', tier:'isolation_small', equipment:'Poulie', difficulty:'débutant', primaryMuscles:['Triceps'], secondaryMuscles:[] },
+  { id:'extension_triceps_nuque', name:'Extension triceps nuque', nameEn:'Overhead Triceps Extension', group:'Bras', kind:'weighted', tier:'isolation_small', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Triceps'], secondaryMuscles:[] },
+  { id:'barre_au_front', name:'Barre au front', nameEn:'Skull Crusher', group:'Bras', kind:'weighted', tier:'isolation_small', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Triceps'], secondaryMuscles:[] },
+  { id:'triceps_dips_banc', name:'Dips triceps (banc)', nameEn:'Bench Dips', group:'Bras', kind:'bodyweight', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Triceps'], secondaryMuscles:['Épaules antérieures'] },
+  { id:'triceps_kickback', name:'Kickback triceps', nameEn:'Triceps Kickback', group:'Bras', kind:'weighted', tier:'isolation_small', equipment:'Haltères', difficulty:'débutant', primaryMuscles:['Triceps'], secondaryMuscles:[] },
+  { id:'developpe_serre', name:'Développé couché prise serrée', nameEn:'Close-Grip Bench Press', group:'Bras', kind:'weighted', tier:'medium_compound', equipment:'Barre', difficulty:'intermédiaire', primaryMuscles:['Triceps'], secondaryMuscles:['Pectoraux'] },
 
   // Abdos / Core
-  { id:'gainage', name:'Gainage (planche)', group:'Abdos', kind:'core' },
-  { id:'gainage_lateral', name:'Gainage latéral', group:'Abdos', kind:'core' },
-  { id:'crunch', name:'Crunch', group:'Abdos', kind:'bodyweight' },
-  { id:'crunch_cable', name:'Crunch câble', group:'Abdos', kind:'weighted', tier:'isolation_small' },
-  { id:'releve_jambes_suspendu', name:'Relevé de jambes suspendu', group:'Abdos', kind:'bodyweight_hard' },
-  { id:'releve_jambes_sol', name:'Relevé de jambes au sol', group:'Abdos', kind:'bodyweight' },
-  { id:'russian_twist', name:'Russian twist', group:'Abdos', kind:'bodyweight' },
-  { id:'ab_wheel', name:'Roulette abdos', group:'Abdos', kind:'bodyweight_hard' },
-  { id:'crunch_inverse', name:'Crunch inversé', group:'Abdos', kind:'bodyweight' },
+  { id:'gainage', name:'Gainage (planche)', nameEn:'Plank', group:'Abdos', kind:'core', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Abdominaux'], secondaryMuscles:['Lombaires'] },
+  { id:'gainage_lateral', name:'Gainage latéral', nameEn:'Side Plank', group:'Abdos', kind:'core', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Obliques'], secondaryMuscles:['Abdominaux'] },
+  { id:'crunch', name:'Crunch', nameEn:'Crunch', group:'Abdos', kind:'bodyweight', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Abdominaux'], secondaryMuscles:[] },
+  { id:'crunch_cable', name:'Crunch câble', nameEn:'Cable Crunch', group:'Abdos', kind:'weighted', tier:'isolation_small', equipment:'Poulie', difficulty:'intermédiaire', primaryMuscles:['Abdominaux'], secondaryMuscles:[] },
+  { id:'releve_jambes_suspendu', name:'Relevé de jambes suspendu', nameEn:'Hanging Leg Raise', group:'Abdos', kind:'bodyweight_hard', equipment:'Poids du corps', difficulty:'avancé', primaryMuscles:['Abdominaux'], secondaryMuscles:['Fléchisseurs de hanche'] },
+  { id:'releve_jambes_sol', name:'Relevé de jambes au sol', nameEn:'Lying Leg Raise', group:'Abdos', kind:'bodyweight', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Abdominaux'], secondaryMuscles:['Fléchisseurs de hanche'] },
+  { id:'russian_twist', name:'Russian twist', nameEn:'Russian Twist', group:'Abdos', kind:'bodyweight', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Obliques'], secondaryMuscles:['Abdominaux'] },
+  { id:'ab_wheel', name:'Roulette abdos', nameEn:'Ab Wheel Rollout', group:'Abdos', kind:'bodyweight_hard', equipment:'Roulette', difficulty:'avancé', primaryMuscles:['Abdominaux'], secondaryMuscles:['Lombaires'] },
+  { id:'crunch_inverse', name:'Crunch inversé', nameEn:'Reverse Crunch', group:'Abdos', kind:'bodyweight', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Abdominaux (bas)'], secondaryMuscles:[] },
 
   // Fonctionnel
-  { id:'kettlebell_swing', name:'Kettlebell swing', group:'Fonctionnel', kind:'weighted', tier:'isolation_large' },
-  { id:'burpees', name:'Burpees', group:'Fonctionnel', kind:'bodyweight' },
-  { id:'mountain_climbers', name:'Mountain climbers', group:'Fonctionnel', kind:'bodyweight' },
-  { id:'box_jump', name:'Box jump', group:'Fonctionnel', kind:'bodyweight' },
+  { id:'kettlebell_swing', name:'Kettlebell swing', nameEn:'Kettlebell Swing', group:'Fonctionnel', kind:'weighted', tier:'isolation_large', equipment:'Kettlebell', difficulty:'intermédiaire', primaryMuscles:['Fessiers','Ischio-jambiers'], secondaryMuscles:['Lombaires','Épaules'] },
+  { id:'burpees', name:'Burpees', nameEn:'Burpee', group:'Fonctionnel', kind:'bodyweight', equipment:'Poids du corps', difficulty:'intermédiaire', primaryMuscles:['Corps entier'], secondaryMuscles:['Pectoraux','Quadriceps'] },
+  { id:'mountain_climbers', name:'Mountain climbers', nameEn:'Mountain Climbers', group:'Fonctionnel', kind:'bodyweight', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Abdominaux'], secondaryMuscles:['Épaules','Quadriceps'] },
+  { id:'box_jump', name:'Box jump', nameEn:'Box Jump', group:'Fonctionnel', kind:'bodyweight', equipment:'Poids du corps', difficulty:'intermédiaire', primaryMuscles:['Quadriceps','Fessiers'], secondaryMuscles:['Mollets'] },
+
+  // Mobilité
+  { id:'etirement_hanches', name:'Étirement des hanches (pigeon)', nameEn:'Pigeon Stretch', group:'Mobilité', kind:'core', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Fléchisseurs de hanche'], secondaryMuscles:['Fessiers'] },
+  { id:'mobilite_chevilles', name:'Mobilité chevilles', nameEn:'Ankle Mobility Drill', group:'Mobilité', kind:'core', equipment:'Poids du corps', difficulty:'débutant', primaryMuscles:['Mollets'], secondaryMuscles:[] },
 ];
 
 /* Poids de départ (kg) par niveau et par "tier" de difficulté */
@@ -192,6 +201,145 @@ function uid(){ return Date.now().toString(36) + Math.random().toString(36).slic
 
 /* ---------------- Helpers ---------------- */
 function exoById(id){ return state.exercises.find(e=>e.id===id); }
+
+/* ---------------- Fiches exercices : consignes, erreurs, variantes ---------------- */
+const GROUP_EMOJI = { Poitrine:'💪', Dos:'🏋️', Jambes:'🦵', Fessiers:'🍑', Épaules:'🤸', Bras:'💪', Abdos:'🧘', Fonctionnel:'🔥', Mobilité:'🌊' };
+
+const EXERCISE_DETAILS = {
+  hip_thrust:{ instructions:["Épaules calées sur un banc, barre posée sur les hanches (coussin de protection recommandé).","Pieds à plat, tibias verticaux en haut de mouvement.","Pousse dans les talons et contracte les fessiers pour lever les hanches jusqu'à l'alignement épaules-hanches-genoux.","Marque une pause en haut, redescends contrôlé sans faire toucher les fesses au sol."], mistakes:["Hyperextension lombaire en haut de mouvement au lieu de finir par les fessiers.","Pieds trop proches ou trop loin, ce qui change l'angle de travail des fessiers.","Descente trop rapide qui casse la tension musculaire."] },
+  solevede_terre:{ instructions:["Barre au sol contre les tibias, pieds largeur bassin.","Dos plat, poitrine haute, prise en pronation juste en dehors des jambes.","Pousse le sol avec les pieds en gardant la barre proche du corps, hanches et épaules montent ensemble.","Termine debout, hanches complètement tendues, sans hyperextension lombaire."], mistakes:["Dos qui s'arrondit (surtout en bas de mouvement).","Barre qui s'éloigne des tibias pendant la montée.","Hanches qui montent plus vite que les épaules ('bon matin' involontaire)."] },
+  deadlift_roumain:{ instructions:["Barre tenue en pronation, jambes légèrement fléchies et fixes.","Pousse les hanches vers l'arrière en gardant le dos plat, barre proche des cuisses.","Descends jusqu'à sentir un étirement fort des ischio-jambiers (mi-tibia environ).","Reviens en poussant les hanches vers l'avant, contraction des fessiers en haut."], mistakes:["Plier trop les genoux, ce qui transforme le mouvement en soulevé de terre classique.","Arrondir le dos en fin de descente.","Descendre trop bas en perdant la tension des ischio-jambiers."] },
+  deadlift_sumo:{ instructions:["Pieds très larges, pointes légèrement tournées vers l'extérieur, prise étroite entre les jambes.","Hanches plus basses qu'au soulevé classique, dos droit.","Pousse le sol vers l'extérieur avec les pieds en tirant la barre le long des jambes.","Verrouille hanches et genoux en même temps en haut."], mistakes:["Genoux qui rentrent vers l'intérieur pendant la traction.","Hanches qui montent avant les épaules.","Position des pieds trop étroite, perdant l'avantage du sumo."] },
+  rowing_barre:{ instructions:["Buste penché à 45° environ, dos plat, genoux légèrement fléchis.","Barre tenue en pronation, bras tendus au départ.","Tire la barre vers le bas des abdominaux en amenant les coudes vers l'arrière.","Contracte les dorsaux en haut, redescends contrôlé sans arrondir le dos."], mistakes:["Utiliser l'élan du bas du dos pour tirer la charge.","Buste qui se redresse à chaque répétition.","Amplitude trop courte, la barre ne descend pas assez bas."] },
+  rowing_haltere:{ instructions:["Un genou et une main au sol/banc, dos plat et parallèle au sol.","Haltère tenu bras tendu, tire vers la hanche en gardant le coude proche du corps.","Contracte le dos en haut de mouvement, évite de tourner le buste.","Redescends contrôlé jusqu'à l'extension complète du bras."], mistakes:["Rotation du buste pour aider à tirer la charge.","Coude qui s'écarte du corps, transformant le mouvement en élévation.","Dos qui s'arrondit par manque de gainage."] },
+  tractions:{ instructions:["Suspension à la barre, prise pronation légèrement plus large que les épaules.","Démarre bras tendus, omoplates basses et engagées.","Tire le corps vers le haut jusqu'à ce que le menton dépasse la barre.","Redescends de façon contrôlée jusqu'à l'extension complète."], mistakes:["Balancement du corps (kipping non maîtrisé) pour compenser le manque de force.","Amplitude partielle, sans descendre bras tendus.","Épaules qui montent vers les oreilles au lieu de rester basses et engagées."] },
+  machine_convergente:{ instructions:["Règle le siège pour que les poignées soient à hauteur du milieu de la poitrine.","Dos plaqué au dossier, poignées tenues fermement.","Pousse en amenant les mains vers l'avant et légèrement vers l'intérieur (mouvement convergent).","Reviens contrôlé sans laisser les charges revenir brutalement en arrière."], mistakes:["Décoller le dos du dossier pour ajouter de l'élan.","Verrouiller complètement les coudes de façon brutale à chaque répétition.","Réglage de siège inadapté qui déplace le travail vers les épaules."] },
+  squat_gobelet:{ instructions:["Haltère tenu à deux mains contre la poitrine, coudes pointant vers le bas.","Pieds légèrement plus larges que les épaules, pointes légèrement ouvertes.","Descends en poussant les hanches vers l'arrière et les genoux vers l'extérieur, jusqu'à ce que les coudes touchent presque les genoux.","Remonte en poussant dans les talons, buste droit."], mistakes:["Talons qui décollent du sol en descente.","Dos qui s'arrondit en bas de mouvement.","Genoux qui rentrent vers l'intérieur à la remontée."] },
+  squat:{ instructions:["Barre posée sur le haut du dos (trapèzes), pieds largeur épaules.","Inspire, gaine le tronc, descends en poussant les hanches vers l'arrière et les genoux vers l'extérieur.","Descends jusqu'à ce que les hanches passent sous le niveau des genoux (si mobilité suffisante).","Remonte en poussant fort dans les talons/le milieu du pied."], mistakes:["Genoux qui rentrent vers l'intérieur pendant la remontée (valgus).","Talons qui se soulèvent en bas de mouvement.","Dos qui s'arrondit sous la charge, surtout en bas d'amplitude."] },
+  developpe_couche:{ instructions:["Allongé sur le banc, omoplates rétractées et basses, légère cambrure naturelle du dos.","Prise juste plus large que les épaules, barre au-dessus de la poitrine.","Descends la barre de façon contrôlée jusqu'à toucher légèrement le bas de la poitrine.","Pousse en gardant les omoplates serrées, jusqu'à l'extension complète des bras."], mistakes:["Rebond de la barre sur la poitrine pour créer de l'élan.","Coudes qui s'écartent à 90° du corps, stressant les épaules.","Fesses qui décollent du banc pendant la poussée."] },
+  developpe_militaire:{ instructions:["Debout ou assis, barre au niveau des clavicules, prise juste plus large que les épaules.","Gaine le tronc et les fessiers avant de pousser.","Pousse la barre à la verticale en passant légèrement le visage vers l'arrière puis vers l'avant en haut.","Redescends contrôlé jusqu'aux clavicules."], mistakes:["Cambrure excessive du bas du dos pour compenser un manque de mobilité d'épaule.","Barre qui part vers l'avant au lieu de monter droit.","Utiliser les jambes (push press involontaire) sans le vouloir."] },
+  presse_cuisses:{ instructions:["Dos et bassin plaqués au dossier, pieds écartés largeur épaules sur le plateau.","Descends le plateau en contrôlant, jusqu'à un angle de 90° de genou environ.","Ne verrouille jamais complètement les genoux en haut pour garder la tension.","Pousse dans le milieu du pied, pas seulement les orteils."], mistakes:["Bassin qui se décolle du dossier en bas de mouvement (amplitude excessive).","Verrouillage brutal et complet des genoux à chaque répétition.","Pieds trop bas sur le plateau, stressant excessivement les genoux."] },
+  tirage_vertical:{ instructions:["Assis, cuisses bloquées, prise large en pronation.","Tire la barre vers le haut de la poitrine en amenant les coudes vers le bas et l'arrière.","Contracte les dorsaux en bas de mouvement, évite de te pencher trop en arrière.","Reviens contrôlé jusqu'à l'extension complète des bras."], mistakes:["Se pencher fortement en arrière pour utiliser l'élan du corps.","Tirer la barre derrière la nuque (risque pour les épaules).","Amplitude partielle sans étirement complet en haut."] },
+  leg_curl:{ instructions:["Allongé ou assis selon la machine, coussin placé juste au-dessus des talons.","Fléchis les genoux en amenant les talons vers les fessiers.","Contracte les ischio-jambiers en fin de mouvement, sans décoller les hanches.","Reviens contrôlé jusqu'à l'extension complète."], mistakes:["Décoller les hanches du support pour aider le mouvement.","Aller trop vite et perdre le contrôle sur la phase de retour.","Amplitude trop courte."] },
+  extension_quadriceps:{ instructions:["Assis, dos calé, tibias placés derrière le coussin juste au-dessus des chevilles.","Étends les jambes jusqu'à l'extension quasi complète des genoux.","Contracte les quadriceps en haut, sans verrouillage brutal.","Redescends contrôlé jusqu'à 90° de flexion."], mistakes:["Utiliser l'élan en remontant trop vite.","Décoller le dos du dossier.","Verrouillage violent et répété des genoux."] },
+  glute_bridge:{ instructions:["Allongé au sol, genoux fléchis, pieds à plat proches des fessiers.","Pousse dans les talons pour lever les hanches jusqu'à l'alignement épaules-hanches-genoux.","Contracte fort les fessiers en haut, marque une pause.","Redescends contrôlé sans reposer complètement les hanches entre les répétitions."], mistakes:["Pousser avec le bas du dos plutôt qu'avec les fessiers.","Pieds trop éloignés des fessiers, réduisant l'amplitude utile.","Aller trop vite sans marquer la contraction en haut."] },
+  fentes:{ instructions:["Debout, un haltère dans chaque main, buste droit.","Fais un grand pas vers l'avant, descends jusqu'à ce que le genou arrière frôle le sol.","Le genou avant reste aligné avec la cheville, pas au-delà des orteils.","Pousse dans le talon avant pour revenir à la position de départ."], mistakes:["Genou avant qui dépasse largement les orteils et part vers l'intérieur.","Pas trop court, ce qui limite l'engagement des fessiers.","Buste qui se penche excessivement vers l'avant."] },
+  mollets_debout:{ instructions:["Debout, épaules sous les appuis de la machine, avant-pieds sur la plateforme.","Descends les talons le plus bas possible pour étirer les mollets.","Monte sur la pointe des pieds le plus haut possible.","Marque une pause en haut avant de redescendre contrôlé."], mistakes:["Amplitude trop courte, sans descente complète des talons.","Rebonds rapides sans contrôle de la phase descendante.","Genoux qui se plient pour tricher le mouvement."] },
+  pompes:{ instructions:["Mains légèrement plus larges que les épaules, corps aligné tête-bassin-talons.","Gaine les abdominaux et les fessiers pour garder le corps droit.","Descends jusqu'à ce que la poitrine frôle le sol, coudes à environ 45° du corps.","Pousse pour revenir à l'extension complète des bras."], mistakes:["Bassin qui s'affaisse ou qui monte trop haut (corps non aligné).","Amplitude partielle sans descendre suffisamment.","Coudes complètement écartés à 90°, stressant les épaules."] },
+  dips:{ instructions:["Suspendu aux barres parallèles, bras tendus, buste légèrement penché en avant pour cibler les pectoraux.","Descends en fléchissant les coudes jusqu'à sentir un étirement pectoral, coudes vers l'arrière.","Remonte en poussant, sans verrouiller brutalement les coudes.","Garde les épaules basses tout au long du mouvement."], mistakes:["Descendre trop bas si la mobilité d'épaule ne le permet pas (risque articulaire).","Buste trop droit, ce qui déplace le travail vers les triceps uniquement.","Épaules qui montent vers les oreilles."] },
+  ohp_halteres:{ instructions:["Assis ou debout, haltères au niveau des épaules, paumes vers l'avant.","Gaine le tronc, pousse les haltères à la verticale au-dessus de la tête.","Évite de cambrer excessivement le bas du dos.","Redescends contrôlé jusqu'au niveau des épaules."], mistakes:["Cambrure lombaire excessive pour compenser un manque de force/mobilité.","Haltères qui partent vers l'avant au lieu de monter droit au-dessus de la tête.","Amplitude partielle sans descendre complètement."] },
+  curl_biceps:{ instructions:["Debout, barre tenue en supination, coudes proches du corps.","Fléchis les coudes pour monter la barre vers les épaules, sans bouger les coudes.","Contracte le biceps en haut, sans hyperextension du poignet.","Redescends contrôlé jusqu'à l'extension complète des bras."], mistakes:["Utiliser le dos et les épaules pour créer de l'élan (tricher la charge).","Coudes qui avancent vers l'avant pendant la montée.","Amplitude partielle sans extension complète en bas."] },
+  extension_triceps:{ instructions:["Face à la poulie haute, coudes fixés proches du corps.","Pousse la barre ou la corde vers le bas jusqu'à l'extension complète des coudes.","Garde les coudes immobiles, seul l'avant-bras bouge.","Reviens contrôlé jusqu'à environ 90° de flexion du coude."], mistakes:["Coudes qui s'écartent du corps ou qui bougent vers l'avant.","Utiliser le poids du corps ou les épaules pour aider le mouvement.","Amplitude trop courte."] },
+  gainage:{ instructions:["Position de planche sur les avant-bras, coudes sous les épaules.","Corps aligné tête-bassin-talons, comme une planche rigide.","Contracte abdominaux et fessiers pour éviter que le bassin ne s'affaisse ou ne monte.","Respire normalement en maintenant la position."], mistakes:["Bassin qui s'affaisse vers le sol (cambrure lombaire).","Fessiers qui montent trop haut, réduisant le travail abdominal.","Tête qui tombe vers l'avant, tension inutile sur la nuque."] },
+  kettlebell_swing:{ instructions:["Pieds largeur épaules, kettlebell tenu à deux mains devant les cuisses.","Bascule les hanches vers l'arrière (hip hinge), le kettlebell part entre les jambes.","Pousse fort les hanches vers l'avant pour projeter le kettlebell jusqu'à hauteur des épaules.","Laisse le kettlebell redescendre en contrôlant le mouvement, genoux légèrement fléchis."], mistakes:["Utiliser les bras et les épaules pour soulever le kettlebell au lieu des hanches.","Squatter au lieu de faire un hip hinge (trop de flexion de genoux).","Cambrure lombaire excessive en fin de mouvement."] },
+  burpees:{ instructions:["Position debout, descends en squat et poses les mains au sol.","Envoie les jambes vers l'arrière pour atteindre la position de pompe, corps aligné.","Fais une pompe (optionnelle selon le niveau), puis ramène les jambes vers les mains.","Termine par un saut vertical, bras tendus au-dessus de la tête."], mistakes:["Bassin qui s'affaisse pendant la phase de planche/pompe.","Mouvement trop rapide qui sacrifie la qualité d'exécution.","Réception du saut mal contrôlée (genoux qui rentrent)."] },
+};
+
+function exoDetailSafe(exo){
+  return Object.assign({ nameEn:'', equipment:'Personnalisé', difficulty:'—', primaryMuscles:[], secondaryMuscles:[] }, exo);
+}
+function genericInstructions(exo){
+  if(exo.kind==='core') return [`Installe-toi en position de ${exo.name.toLowerCase()}, tronc gainé.`, "Contrôle la respiration, évite de bloquer complètement l'air.", "Maintiens une posture stable sans compenser avec le bas du dos.", "Termine la série dès que la qualité d'exécution se dégrade."];
+  if(exo.kind==='bodyweight' || exo.kind==='bodyweight_hard') return [`Place le corps dans la position de départ du ${exo.name.toLowerCase()}, gainage actif.`, "Exécute le mouvement de façon contrôlée sur toute l'amplitude disponible.", "Évite les à-coups ou l'élan pour compenser le manque de force.", "Reviens à la position de départ sans relâcher le gainage."];
+  const muscles = exo.primaryMuscles.length ? exo.primaryMuscles.join(', ').toLowerCase() : 'la zone ciblée';
+  return [`Installe-toi avec un ${exo.equipment.toLowerCase()} adapté à ton niveau.`, "Réalise le mouvement sur toute l'amplitude, de façon contrôlée à la montée comme à la descente.", `Concentre le travail sur : ${muscles}.`, "Termine la série avant que la technique ne se dégrade."];
+}
+function genericMistakes(exo){
+  return ["Charge trop lourde qui dégrade l'amplitude ou la technique.", "Mouvement trop rapide qui réduit le contrôle musculaire.", "Compensation par le bas du dos ou d'autres muscles non ciblés."];
+}
+function exerciseVariants(exo){
+  if(!exo.primaryMuscles.length) return [];
+  return EXERCISES.filter(e=> e.id!==exo.id && e.group===exo.group && e.primaryMuscles.some(m=>exo.primaryMuscles.includes(m))).slice(0,4);
+}
+function exerciseAlternatives(exo){
+  if(!exo.primaryMuscles.length) return [];
+  const variantIds = exerciseVariants(exo).map(e=>e.id);
+  return EXERCISES.filter(e=> e.id!==exo.id && !variantIds.includes(e.id) && e.equipment!==exo.equipment && e.primaryMuscles.some(m=>exo.primaryMuscles.includes(m))).slice(0,4);
+}
+function youtubeSearchUrl(exo){
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(exo.name+' '+exo.nameEn+' technique exécution')}`;
+}
+function exerciseMatchesQuery(e, nq, norm){
+  const primary = e.primaryMuscles||[], secondary = e.secondaryMuscles||[];
+  return norm(e.name).includes(nq) || norm(e.nameEn||'').includes(nq) || norm(e.group).includes(nq)
+    || norm(e.equipment||'').includes(nq) || norm(e.difficulty||'').includes(nq)
+    || primary.some(m=>norm(m).includes(nq)) || secondary.some(m=>norm(m).includes(nq));
+}
+
+function exerciseDetailHtml(rawExo){
+  const exo = exoDetailSafe(rawExo);
+  const details = EXERCISE_DETAILS[exo.id];
+  const instructions = details ? details.instructions : genericInstructions(exo);
+  const mistakes = details ? details.mistakes : genericMistakes(exo);
+  const variants = exerciseVariants(exo);
+  const alternatives = exerciseAlternatives(exo);
+  const chipsHtml = (list)=> list.length ? list.map(e=>`<button type="button" class="chip exo-chip-link" data-id="${e.id}">${e.name}</button>`).join('') : `<span class="sr-sub">Aucune trouvée.</span>`;
+  return `
+    <div class="exo-detail">
+      <div class="exo-detail-hero">
+        <span class="exo-detail-emoji">${GROUP_EMOJI[exo.group]||'🏋️'}</span>
+        <div>
+          <div class="exo-detail-name">${exo.name}</div>
+          <div class="exo-detail-nameEn">${exo.nameEn}</div>
+        </div>
+      </div>
+      <div class="exo-detail-tags">
+        <span class="chip">${exo.group}</span>
+        <span class="chip">${exo.equipment}</span>
+        <span class="chip">${exo.difficulty}</span>
+      </div>
+      <div class="exo-detail-section">
+        <div class="stat-title">Muscles</div>
+        <div class="sr-sub"><b>Principaux :</b> ${exo.primaryMuscles.join(', ')}</div>
+        ${exo.secondaryMuscles.length ? `<div class="sr-sub"><b>Secondaires :</b> ${exo.secondaryMuscles.join(', ')}</div>` : ''}
+      </div>
+      <div class="exo-detail-section">
+        <div class="stat-title">Consignes d'exécution</div>
+        <ol class="exo-detail-list">${instructions.map(i=>`<li>${i}</li>`).join('')}</ol>
+      </div>
+      <div class="exo-detail-section">
+        <div class="stat-title">Erreurs fréquentes</div>
+        <ul class="exo-detail-list">${mistakes.map(i=>`<li>${i}</li>`).join('')}</ul>
+      </div>
+      <div class="exo-detail-section">
+        <div class="stat-title">Variantes</div>
+        <div class="exo-chip-row">${chipsHtml(variants)}</div>
+      </div>
+      <div class="exo-detail-section">
+        <div class="stat-title">Alternatives</div>
+        <div class="exo-chip-row">${chipsHtml(alternatives)}</div>
+      </div>
+      <a class="btn secondary" href="${youtubeSearchUrl(exo)}" target="_blank" rel="noopener">▶️ Voir des démonstrations sur YouTube</a>
+    </div>`;
+}
+
+function openExerciseDetail(exerciseId, onSelect){
+  const exo = exoById(exerciseId);
+  if(!exo) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-overlay';
+  wrap.id = 'detailOverlay';
+  wrap.style.zIndex = 300;
+  wrap.innerHTML = `
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">Fiche exercice</div>
+        <button class="modal-close" id="detailCloseBtn">✕</button>
+      </div>
+      <div id="detailBody">${exerciseDetailHtml(exo)}</div>
+      ${onSelect ? `<button type="button" class="btn" id="detailSelectBtn">Ajouter cet exercice</button>` : ''}
+    </div>`;
+  document.body.appendChild(wrap);
+  const close = ()=>{ if(wrap.parentNode) document.body.removeChild(wrap); };
+  document.getElementById('detailCloseBtn').onclick = close;
+  wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
+  wrap.querySelectorAll('.exo-chip-link').forEach(btn=>{
+    btn.onclick = ()=>{ close(); openExerciseDetail(btn.dataset.id, onSelect); };
+  });
+  if(onSelect){
+    document.getElementById('detailSelectBtn').onclick = ()=>{ close(); onSelect(exo.id); };
+  }
+}
 function fmtPace(paceDecimal){
   const min = Math.floor(paceDecimal);
   const sec = Math.round((paceDecimal-min)*60);
@@ -244,10 +392,16 @@ function weightedTargetsFor(exerciseId){
   const ratio = acwr();
   const highLoad = ratio!=null && ratio>1.5;
 
+  const MAX_SETS = goalCfg.sets + 2;
+
   if(past.length){
     const last = past[0];
     const targetReps = last.targetReps || reps;
     const achieved = (last.sets||[]).length ? (last.sets||[]).every(s=>(s.reps||0) >= targetReps) : false;
+    sets = Math.max(sets, (last.sets||[]).length || sets);
+    // Progression double/triple : on fait tourner le type d'ajustement (charge, répétition, série)
+    // pour éviter de ne jouer que sur le poids d'une séance à l'autre.
+    const progressionCycle = past.length % 3;
 
     if(highLoad && achieved){
       reason = `Charge maintenue : ta charge d'entraînement récente est élevée (ACWR ${ratio.toFixed(1)}), on évite d'en rajouter.`;
@@ -255,13 +409,33 @@ function weightedTargetsFor(exerciseId){
       reps = targetReps;
     } else if(exo.kind==='weighted'){
       weight = last.weightUsed ?? weight;
-      if(achieved && last.difficulty<=3){ weight = Math.round((weight+2.5)*2)/2; reason = `Poids augmenté à ${weight}kg : séries précédentes réussies avec une difficulté modérée (${last.difficulty}/5).`; }
-      else if(!achieved || last.difficulty>=5){ weight = Math.max(0, Math.round((weight-2.5)*2)/2); reason = !achieved ? 'Poids réduit : les répétitions cibles n\'avaient pas été atteintes la dernière fois.' : 'Poids réduit : la séance précédente était très difficile (ressenti 5/5).'; }
-      else reason = 'Charge stable : tu es dans une bonne zone d\'effort (ressenti 4/5).';
       reps = targetReps;
+      if(achieved && last.difficulty<=3){
+        if(progressionCycle===1){
+          sets = Math.min(MAX_SETS, sets+1);
+          reason = `Série ajoutée (${sets} au total) : charge et répétitions bien maîtrisées la dernière fois.`;
+        } else if(progressionCycle===2){
+          reps = targetReps+1;
+          reason = `Répétition ajoutée (${reps} par série) : continue sur cette charge avant de remonter le poids.`;
+        } else {
+          weight = Math.round((weight+2.5)*2)/2;
+          reason = `Poids augmenté à ${weight}kg : séries précédentes réussies avec une difficulté modérée (${last.difficulty}/5).`;
+        }
+      } else if(!achieved || last.difficulty>=5){
+        weight = Math.max(0, Math.round((weight-2.5)*2)/2);
+        reason = !achieved ? 'Poids réduit : les répétitions cibles n\'avaient pas été atteintes la dernière fois.' : 'Poids réduit : la séance précédente était très difficile (ressenti 5/5).';
+      } else reason = 'Charge stable : tu es dans une bonne zone d\'effort (ressenti 4/5).';
     } else {
       reps = last.targetReps || reps;
-      if(achieved && last.difficulty<=3){ reps += (exo.kind==='core'?5:1); reason = `Objectif augmenté à ${reps}${exo.kind==='core'?'s':' reps'} : bien réussi la dernière fois.`; }
+      if(achieved && last.difficulty<=3){
+        if(progressionCycle===1 && sets<MAX_SETS){
+          sets += 1;
+          reason = `Série ajoutée (${sets} au total) : le nombre de répétitions actuel est bien maîtrisé.`;
+        } else {
+          reps += (exo.kind==='core'?5:1);
+          reason = `Objectif augmenté à ${reps}${exo.kind==='core'?'s':' reps'} : bien réussi la dernière fois.`;
+        }
+      }
       else if(!achieved || last.difficulty>=5){ reps = Math.max(exo.kind==='core'?10:3, reps-1); reason = 'Objectif réduit pour rester sur une progression réaliste.'; }
       else reason = 'Objectif stable : bon niveau d\'effort la dernière fois.';
     }
@@ -523,18 +697,32 @@ function renderUpcoming(){
    RENDER — Historique
    ============================================================ */
 let histFilter='all';
+let histSearchQuery='';
+function sessionMatchesHistSearch(s, nq, norm){
+  if(!nq) return true;
+  if(norm(s.label||'').includes(nq) || norm(s.title||'').includes(nq) || norm(s.notes||'').includes(nq)) return true;
+  if(norm(fmtDate(s.date)).includes(nq)) return true;
+  if(s.type==='muscu') return s.exercises.some(e=> norm(e.name).includes(nq));
+  const runTypeLabel = RUN_TYPES.find(t=>t.v===s.runType)?.l || '';
+  return norm(runTypeLabel).includes(nq);
+}
 function renderHistorique(){
   const el = document.getElementById('historyList');
-  const list = state.sessions.filter(s=> histFilter==='all' || s.type===histFilter);
+  const norm = s=> s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const nq = norm(histSearchQuery);
+  const list = state.sessions
+    .filter(s=> histFilter==='all' || s.type===histFilter)
+    .filter(s=> sessionMatchesHistSearch(s, nq, norm))
+    .sort((a,b)=> new Date(b.date)-new Date(a.date));
   if(!list.length){
-    el.innerHTML = `<div class="hist-empty">Aucune séance enregistrée pour l'instant.</div>`;
+    el.innerHTML = `<div class="hist-empty">${histSearchQuery ? 'Aucune séance ne correspond à ta recherche.' : "Aucune séance enregistrée pour l'instant."}</div>`;
     return;
   }
   el.innerHTML = list.map(s=>{
     if(s.type==='muscu'){
       const detail = s.exercises.map(e=>{
         const exo = exoById(e.exerciseId);
-        const setsStr = (e.sets||[]).map(st=> exo.kind==='core' ? `${st.reps}s` : `${st.reps}${exo.kind==='weighted'?`×${st.weight}kg`:''}`).join(', ');
+        const setsStr = (e.sets||[]).map(st=> (exo && exo.kind==='core') ? `${st.reps}s` : `${st.reps}${(exo && exo.kind==='weighted')?`×${st.weight}kg`:''}`).join(', ');
         return `<div>${e.name}: ${setsStr||'—'}</div>`;
       }).join('');
       return `<div class="hist-item">
@@ -542,7 +730,11 @@ function renderHistorique(){
           <div class="hist-title"><span class="hist-tag muscu">MUSCU</span>${s.label||''}</div>
           <div class="hist-date">${fmtDate(s.date)}</div>
         </div>
-        <div class="hist-detail">${detail}Ressenti : ${'⭐'.repeat(s.difficulty)}</div>
+        <div class="hist-detail">
+          ${s.duration_min ? `Durée : ${s.duration_min} min<br>` : ''}
+          ${detail}Ressenti : ${'⭐'.repeat(s.difficulty)}
+          ${s.notes ? `<div class="hist-notes">💬 ${s.notes}</div>` : ''}
+        </div>
       </div>`;
     }
     const extras = [];
@@ -562,128 +754,13 @@ function renderHistorique(){
         ${s.distance_km} km · Durée : ${s.duration_min} min · Allure : ${fmtPace(s.pace)}${runTypeLabel? ' · '+runTypeLabel : ''}
         ${extras.length? '<br>'+extras.join(' · ') : ''}
         <br>Ressenti : ${'⭐'.repeat(s.difficulty)}
+        ${s.notes ? `<div class="hist-notes">💬 ${s.notes}</div>` : ''}
       </div>
       ${miniRouteMapHtml(s.route)}
     </div>`;
   }).join('');
 }
 
-/* ============================================================
-   RENDER — Stats
-   ============================================================ */
-let statTab='volume';
-function renderStats(){
-  const el = document.getElementById('statsContent');
-  if(statTab==='volume') el.innerHTML = statVolumeHtml();
-  else if(statTab==='exo') el.innerHTML = statExoHtml();
-  else if(statTab==='records') el.innerHTML = statRecordsHtml();
-  else if(statTab==='insights') el.innerHTML = statInsightsHtml();
-  else el.innerHTML = statCourseHtml();
-  if(statTab==='exo') wireExoSelect();
-}
-
-function weeklyVolumes(){
-  const byWeek = {};
-  state.sessions.filter(s=>s.type==='muscu').forEach(s=>{
-    const ws = startOfWeek(new Date(s.date)).toISOString().slice(0,10);
-    let vol = 0;
-    s.exercises.forEach(e=> (e.sets||[]).forEach(st=> vol += (st.reps||0)*(st.weight||1)));
-    byWeek[ws] = (byWeek[ws]||0) + vol;
-  });
-  return Object.entries(byWeek).sort((a,b)=> a[0]<b[0]?-1:1).slice(-8);
-}
-
-function statVolumeHtml(){
-  const data = weeklyVolumes();
-  if(!data.length) return `<div class="stat-card"><div class="empty-stat">Pas encore de données. Enregistre une séance de musculation !</div></div>`;
-  const max = Math.max(...data.map(d=>d[1]), 1);
-  const w=320,h=140,bw = w/data.length;
-  const bars = data.map(([wk,v],i)=>{
-    const bh = (v/max)*(h-24);
-    const x = i*bw + bw*0.2;
-    return `<rect x="${x}" y="${h-bh-16}" width="${bw*0.6}" height="${bh}" rx="4" fill="var(--muscu)"></rect>
-      <text class="bar-label" x="${x+bw*0.3}" y="${h-2}">${wk.slice(5)}</text>`;
-  }).join('');
-  return `<div class="stat-card">
-    <div class="stat-title">Volume hebdomadaire (kg × reps)</div>
-    <svg class="chart" viewBox="0 0 ${w} ${h}">${bars}</svg>
-  </div>`;
-}
-
-function statExoHtml(){
-  const weightedExos = state.exercises.filter(e=>e.kind==='weighted');
-  const opts = weightedExos.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
-  return `<div class="stat-card">
-    <div class="stat-title">Progression par exercice</div>
-    <select id="exoSelect" class="select-input">${opts}</select>
-    <div id="exoChartWrap"></div>
-  </div>`;
-}
-function wireExoSelect(){
-  const sel = document.getElementById('exoSelect');
-  const draw = ()=>{
-    const id = sel.value;
-    const points = state.sessions.filter(s=>s.type==='muscu')
-      .flatMap(s=> s.exercises.filter(e=>e.exerciseId===id).map(e=>({
-        date:s.date, max: Math.max(0,...(e.sets||[]).map(st=>st.weight||0))
-      })))
-      .sort((a,b)=> new Date(a.date)-new Date(b.date));
-    document.getElementById('exoChartWrap').innerHTML = points.length ? lineChart(points.map(p=>p.max), points.map(p=>fmtDate(p.date)), 'var(--muscu)', 'kg') : `<div class="empty-stat">Pas encore de données pour cet exercice.</div>`;
-  };
-  sel.onchange = draw;
-  draw();
-}
-
-function statCourseHtml(){
-  const runs = state.sessions.filter(s=>s.type==='course').sort((a,b)=> new Date(a.date)-new Date(b.date));
-  if(!runs.length) return `<div class="stat-card"><div class="empty-stat">Pas encore de course enregistrée.</div></div>`;
-  const last5 = runs.slice(-10);
-  const totalDist = runs.reduce((a,r)=>a+r.distance_km,0).toFixed(1);
-  const bestPace = Math.min(...runs.map(r=>r.pace));
-  const totalElev = runs.reduce((a,r)=>a+(r.elevationGain_m||0),0);
-  const hrRuns = runs.filter(r=>r.avgHr);
-  const avgHrAll = hrRuns.length ? Math.round(hrRuns.reduce((a,r)=>a+r.avgHr,0)/hrRuns.length) : null;
-  return `<div class="stat-card">
-    <div class="kpi-row">
-      <div class="kpi"><div class="kv">${runs.length}</div><div class="kl">Sorties</div></div>
-      <div class="kpi"><div class="kv">${totalDist}</div><div class="kl">km total</div></div>
-      <div class="kpi"><div class="kv">${fmtPace(bestPace)}</div><div class="kl">Meilleure allure</div></div>
-    </div>
-    <div class="kpi-row">
-      <div class="kpi"><div class="kv">${totalElev}m</div><div class="kl">D+ total</div></div>
-      <div class="kpi"><div class="kv">${avgHrAll || '—'}</div><div class="kl">FC moy. (bpm)</div></div>
-    </div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-title">Allure (min/km)</div>
-    ${lineChart(last5.map(r=>r.pace), last5.map(r=>fmtDate(r.date)), 'var(--course)', '', true)}
-  </div>
-  <div class="stat-card">
-    <div class="stat-title">Distance (km)</div>
-    ${lineChart(last5.map(r=>r.distance_km), last5.map(r=>fmtDate(r.date)), 'var(--course)', 'km')}
-  </div>`;
-}
-
-function lineChart(values, labels, color, unit='', invert=false){
-  const w=320,h=140, pad=20;
-  const min = Math.min(...values), max = Math.max(...values);
-  const range = (max-min)||1;
-  const stepX = values.length>1 ? (w-pad*2)/(values.length-1) : 0;
-  const yFor = v=>{
-    const norm = (v-min)/range;
-    const n = invert ? norm : (1-norm);
-    return pad + n*(h-pad*2-10);
-  };
-  const pts = values.map((v,i)=> [pad+i*stepX, yFor(v)]);
-  const path = pts.map((p,i)=> (i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
-  const dots = pts.map((p,i)=>`<circle class="chart-dot" cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${color}"></circle>`).join('');
-  const labs = labels.map((l,i)=> i%Math.ceil(labels.length/6||1)===0 ? `<text class="chart-label" x="${pts[i][0]}" y="${h-2}" text-anchor="middle">${l}</text>` : '').join('');
-  return `<svg class="chart" viewBox="0 0 ${w} ${h}">
-    <line class="chart-axis" x1="${pad}" y1="${h-16}" x2="${w-pad}" y2="${h-16}"></line>
-    <path class="chart-line" d="${path}" stroke="${color}"></path>
-    ${dots}${labs}
-  </svg>`;
-}
 
 /* ============================================================
    RENDER — Réglages
@@ -876,9 +953,40 @@ function exoBlockHtml(e){
   </div>`;
 }
 
+function lastSessionByLabel(label){
+  if(!label) return null;
+  const norm = s=>s.trim().toLowerCase();
+  const matches = state.sessions.filter(s=>s.type==='muscu' && s.label && norm(s.label)===norm(label))
+    .sort((a,b)=> new Date(b.date)-new Date(a.date));
+  return matches[0] || null;
+}
+function sessionExerciseSummaryHtml(session){
+  return session.exercises.map(e=>{
+    const exo = exoById(e.exerciseId);
+    const setsStr = (e.sets||[]).map(st=> (exo && exo.kind==='core') ? `${st.reps}s` : `${st.reps}${st.weight?'×'+st.weight+'kg':''}`).join(', ');
+    return `<div class="cmp-exo"><span class="cmp-exo-name">${e.name}</span><span class="cmp-exo-sets">${setsStr||'—'}</span></div>`;
+  }).join('');
+}
+function comparisonPanelHtml(label){
+  if(!label) return `<div class="cmp-panel"><div class="cmp-empty">Nomme ta séance pour voir automatiquement ta dernière séance similaire.</div></div>`;
+  const last = lastSessionByLabel(label);
+  return `<div class="cmp-panel">
+    <div class="cmp-col">
+      <div class="cmp-col-title">🎯 Aujourd'hui</div>
+      <div class="cmp-col-sub">${label}</div>
+    </div>
+    <div class="cmp-col">
+      <div class="cmp-col-title">📅 Dernière fois</div>
+      ${last ? `<div class="cmp-col-sub">${fmtDate(last.date)}</div>${sessionExerciseSummaryHtml(last)}` : `<div class="cmp-empty">Aucune séance "${label}" enregistrée encore.</div>`}
+    </div>
+  </div>`;
+}
+
 function muscuModalHtml(planItem){
   const exos = planItem ? planItem.exercises : defaultFreeMuscuExos();
   const blocks = exos.map(exoBlockHtml).join('');
+  const label = planItem ? planItem.label : '';
+  const existingLabels = [...new Set(state.sessions.filter(s=>s.type==='muscu' && s.label).map(s=>s.label))];
 
   return `<div class="modal-overlay" id="overlay">
     <div class="modal-sheet">
@@ -886,9 +994,19 @@ function muscuModalHtml(planItem){
         <div class="modal-title">${planItem? 'Musculation · '+planItem.label : 'Séance libre'}</div>
         <button class="modal-close" id="closeModalBtn">✕</button>
       </div>
+      ${planItem ? '' : `<div class="field">
+        <label>Nom de la séance</label>
+        <input type="text" id="sessionLabelInput" list="sessionLabelsList" placeholder="Fessiers, Push, Dos, Jambes..." value="${label}">
+        <datalist id="sessionLabelsList">${existingLabels.map(l=>`<option value="${l}"></option>`).join('')}</datalist>
+      </div>`}
+      <div id="comparisonPanel">${comparisonPanelHtml(label)}</div>
       <div id="exoBlocksWrap">${blocks}</div>
       <button type="button" class="btn secondary" id="addExoToSessionBtn">+ Ajouter un exercice</button>
       <div class="field" style="margin-top:14px;">
+        <label>Durée (minutes, optionnel)</label>
+        <input type="number" step="1" id="muscuDurationInput" placeholder="45">
+      </div>
+      <div class="field">
         <label>Ressenti de la séance</label>
         <div class="rpe-row" id="rpeRow">
           ${[1,2,3,4,5].map(n=>`<button type="button" class="rpe-btn" data-v="${n}">${n}</button>`).join('')}
@@ -916,7 +1034,7 @@ function openExercisePicker(onSelect){
         <div class="modal-title">Choisir un exercice</div>
         <button class="modal-close" id="pickerCloseBtn">✕</button>
       </div>
-      <div class="field"><input type="text" id="pickerSearch" placeholder="Rechercher un exercice..."></div>
+      <div class="field"><input type="text" id="pickerSearch" placeholder="Rechercher : nom FR/EN, muscle, matériel, difficulté..."></div>
       <div id="pickerList"></div>
     </div>`;
   document.body.appendChild(wrap);
@@ -925,17 +1043,23 @@ function openExercisePicker(onSelect){
     const norm = s=> s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     const nq = norm(q);
     const list = document.getElementById('pickerList');
-    const filtered = state.exercises.filter(e=> norm(e.name).includes(nq));
+    const filtered = state.exercises.filter(e=> exerciseMatchesQuery(e, nq, norm));
     if(!filtered.length){ list.innerHTML = `<div class="empty-stat">Aucun exercice trouvé.</div>`; return; }
     const byGroup = {};
     filtered.forEach(e=>{ (byGroup[e.group] = byGroup[e.group]||[]).push(e); });
     list.innerHTML = Object.entries(byGroup).map(([group, list])=>`
       <div class="picker-group">
         <div class="picker-group-label">${group}</div>
-        ${list.map(e=>`<button type="button" class="picker-item" data-id="${e.id}">${e.name}</button>`).join('')}
+        ${list.map(e=>`<div class="picker-row">
+          <button type="button" class="picker-item" data-id="${e.id}">${e.name}</button>
+          <button type="button" class="picker-info-btn" data-info-id="${e.id}" aria-label="Fiche exercice">ⓘ</button>
+        </div>`).join('')}
       </div>`).join('');
     list.querySelectorAll('.picker-item').forEach(btn=>{
       btn.onclick = ()=>{ onSelect(btn.dataset.id); document.body.removeChild(wrap); };
+    });
+    list.querySelectorAll('.picker-info-btn').forEach(btn=>{
+      btn.onclick = ()=> openExerciseDetail(btn.dataset.infoId, (id)=>{ onSelect(id); document.body.removeChild(wrap); });
     });
   };
   renderList();
@@ -1057,6 +1181,13 @@ function wireModal(type, planItem, gps){
       });
     };
 
+    const labelInput = document.getElementById('sessionLabelInput');
+    if(labelInput){
+      labelInput.addEventListener('input', ()=>{
+        document.getElementById('comparisonPanel').innerHTML = comparisonPanelHtml(labelInput.value.trim());
+      });
+    }
+
     document.getElementById('saveSessionBtn').onclick = ()=>{
       const blocks = document.querySelectorAll('.exo-block');
       const exercises = [];
@@ -1075,10 +1206,12 @@ function wireModal(type, planItem, gps){
         exercises.push({ exerciseId, name: exo.name, sets, targetReps, weightUsed });
       });
       if(!exercises.some(e=>e.sets.length)){ toast('Ajoute au moins une série'); return; }
+      const durationVal = parseInt(document.getElementById('muscuDurationInput').value);
       const sessionData = {
         id: uid(), type:'muscu', date: new Date().toISOString(),
-        label: planItem? planItem.label : 'Séance libre',
+        label: planItem? planItem.label : ((labelInput && labelInput.value.trim()) || 'Séance libre'),
         exercises, difficulty: rpe||3,
+        duration_min: isNaN(durationVal) ? undefined : durationVal,
         notes: document.getElementById('notesInput').value.trim(),
       };
       if(planItem) completePlanItem(planItem.id, sessionData);
@@ -1703,109 +1836,6 @@ function predictRaceTimeMin(distanceKm){
   const refDist = est.basedOn.distance_km, refTimeMin = est.basedOn.duration_min;
   return refTimeMin * Math.pow(distanceKm/refDist, 1.06);
 }
-function personalRecordsRun(){
-  const buckets = [ {label:'5 km', min:4.5, max:5.5}, {label:'10 km', min:9, max:11}, {label:'Semi (21 km)', min:19, max:23}, {label:'Marathon (42 km)', min:39, max:45} ];
-  return buckets.map(b=>{
-    const matches = state.sessions.filter(s=> s.type==='course' && s.distance_km>=b.min && s.distance_km<=b.max);
-    if(!matches.length) return { label:b.label, value:null };
-    const best = matches.reduce((a,c)=> a.duration_min<c.duration_min? a:c);
-    return { label:b.label, value: fmtElapsed(best.duration_min*60000), date:best.date };
-  });
-}
-function personalRecordsMuscu(){
-  const weighted = state.exercises.filter(e=>e.kind==='weighted');
-  const prs = weighted.map(exo=>{
-    const maxW = state.sessions.filter(s=>s.type==='muscu')
-      .flatMap(s=> s.exercises.filter(e=>e.exerciseId===exo.id))
-      .flatMap(e=> (e.sets||[]).map(st=>st.weight||0));
-    return maxW.length ? { name:exo.name, weight:Math.max(...maxW) } : null;
-  }).filter(Boolean).sort((a,b)=> b.weight-a.weight);
-  return prs.slice(0,8);
-}
-
-function statRecordsHtml(){
-  const vmaEst = estimateVMA();
-  const runPRs = personalRecordsRun();
-  const muscuPRs = personalRecordsMuscu();
-  const ratio = acwr();
-  const acwrInfo = acwrLabel(ratio);
-
-  const vmaHtml = vmaEst ? `
-    <div class="kpi-row">
-      <div class="kpi"><div class="kv">${vmaEst.vma.toFixed(1)}</div><div class="kl">VMA est. (km/h)</div></div>
-      <div class="kpi"><div class="kv">${Math.round(vmaEst.vo2max)}</div><div class="kl">VO2max est.</div></div>
-    </div>
-    <div class="sr-sub" style="margin-top:8px;">Basé sur ta meilleure sortie récente (${vmaEst.basedOn.distance_km} km à ${fmtPace(vmaEst.basedOn.pace)}). Estimation indicative, pas une mesure en laboratoire.</div>
-  ` : `<div class="empty-stat">Fais au moins une course de 3 km pour estimer ta VMA.</div>`;
-
-  const predHtml = vmaEst ? `
-    <div class="splits-list">
-      ${[5,10,21.1,42.2].map(d=>`<div class="split-row"><span>${d===21.1?'Semi':d===42.2?'Marathon':d+' km'}</span><span>${fmtElapsed(predictRaceTimeMin(d)*60000)}</span></div>`).join('')}
-    </div>` : '';
-
-  const runPrHtml = runPRs.map(p=> `<div class="split-row"><span>${p.label}</span><span>${p.value ? p.value : '—'}</span></div>`).join('');
-  const muscuPrHtml = muscuPRs.length ? muscuPRs.map(p=>`<div class="split-row"><span>${p.name}</span><span>${p.weight} kg</span></div>`).join('') : `<div class="empty-stat">Pas encore de charge enregistrée.</div>`;
-
-  return `
-    <div class="stat-card">
-      <div class="stat-title">VMA / VO2max estimés</div>
-      ${vmaHtml}
-    </div>
-    ${predHtml ? `<div class="stat-card"><div class="stat-title">Temps de course prédits</div>${predHtml}</div>` : ''}
-    <div class="stat-card">
-      <div class="stat-title">Charge d'entraînement</div>
-      <div class="acwr-badge ${acwrInfo.cls}">${ratio!=null? ratio.toFixed(2):'—'} · ${acwrInfo.text}</div>
-      <div class="sr-sub" style="margin-top:8px;">Ratio charge aiguë (7j) / chronique (28j). Zone idéale : 0.8 – 1.3.</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-title">Records personnels · Course</div>
-      <div class="splits-list">${runPrHtml}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-title">Records personnels · Musculation</div>
-      <div class="splits-list">${muscuPrHtml}</div>
-    </div>`;
-}
-
-/* ============================================================
-   INSIGHTS — analyse statistique des données réelles de l'utilisateur
-   (pas de ML/IA payante : uniquement des stats calculées localement,
-   qui deviennent plus fiables au fil de l'usage)
-   ============================================================ */
-function insightBestTimeOfDay(){
-  const buckets = { matin:[], 'après-midi':[], soir:[] };
-  state.sessions.forEach(s=>{
-    const h = new Date(s.date).getHours();
-    const key = h<12 ? 'matin' : h<18 ? 'après-midi' : 'soir';
-    buckets[key].push(s.difficulty||3);
-  });
-  const entries = Object.entries(buckets).filter(([,v])=>v.length>=3);
-  if(entries.length<2) return null;
-  const avg = arr=> arr.reduce((a,b)=>a+b,0)/arr.length;
-  const ranked = entries.map(([k,v])=>({ periode:k, count:v.length, avgDifficulty:avg(v) })).sort((a,b)=>a.avgDifficulty-b.avgDifficulty);
-  return ranked;
-}
-
-function insightBestExercises(){
-  const weighted = state.exercises.filter(e=>e.kind==='weighted');
-  const rows = weighted.map(exo=>{
-    const hist = state.sessions.filter(s=>s.type==='muscu')
-      .flatMap(s=> s.exercises.filter(e=>e.exerciseId===exo.id).map(e=>({ date:s.date, w:Math.max(0,...(e.sets||[]).map(st=>st.weight||0)) })))
-      .sort((a,b)=> new Date(a.date)-new Date(b.date));
-    if(hist.length<3) return null;
-    const first = hist[0], last = hist[hist.length-1];
-    const weeks = Math.max(1, (new Date(last.date)-new Date(first.date))/(7*86400000));
-    const ratePerWeek = (last.w-first.w)/weeks;
-    return { name:exo.name, ratePerWeek, sessions:hist.length };
-  }).filter(Boolean).sort((a,b)=> b.ratePerWeek-a.ratePerWeek);
-  return rows.slice(0,5);
-}
-
-function insightTopFoods(){
-  const counts = {};
-  state.nutrition.meals.forEach(m=>{ counts[m.name] = (counts[m.name]||0)+1; });
-  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,6);
-}
 
 function detectPlateaus(){
   const weighted = state.exercises.filter(e=>e.kind==='weighted');
@@ -1856,72 +1886,6 @@ function detectFatigueWeek(){
   if(thisAvg - lastAvg >= 1) return { thisAvg, lastAvg, verdict:'fatigue' };
   if(lastAvg - thisAvg >= 1) return { thisAvg, lastAvg, verdict:'progression' };
   return null;
-}
-
-function statInsightsHtml(){
-  const totalDataPoints = state.sessions.length + state.nutrition.meals.length;
-  if(totalDataPoints < 8){
-    return `<div class="stat-card"><div class="empty-stat">Continue à enregistrer tes séances et tes repas — les insights apparaissent automatiquement dès qu'il y a assez de données pour être fiables (environ 1 à 2 semaines d'usage régulier).</div></div>`;
-  }
-
-  const timeOfDay = insightBestTimeOfDay();
-  const bestExos = insightBestExercises();
-  const topFoods = insightTopFoods();
-  const plateaus = detectPlateaus();
-  const imbalance = detectMuscleImbalance();
-  const fatigueWeek = detectFatigueWeek();
-
-  let html = `<div class="stat-card"><div class="stat-title">💡 Ce que tes données racontent</div>
-    <div class="sr-sub">Analyse calculée uniquement à partir de ton propre historique — aucune donnée envoyée à l'extérieur.</div></div>`;
-
-  if(fatigueWeek && fatigueWeek.verdict==='fatigue'){
-    html += `<div class="stat-card">
-      <div class="stat-title">⚠️ Semaine de fatigue détectée</div>
-      <div class="sr-sub">Ton ressenti d'effort moyen est passé de ${fatigueWeek.lastAvg.toFixed(1)}/5 à ${fatigueWeek.thisAvg.toFixed(1)}/5 par rapport à la semaine dernière. Envisage une séance plus légère ou un jour de repos supplémentaire.</div>
-    </div>`;
-  } else if(fatigueWeek && fatigueWeek.verdict==='progression'){
-    html += `<div class="stat-card">
-      <div class="stat-title">🚀 Semaine de forte progression</div>
-      <div class="sr-sub">Ton ressenti d'effort s'améliore nettement (${fatigueWeek.lastAvg.toFixed(1)}/5 → ${fatigueWeek.thisAvg.toFixed(1)}/5) : tes séances passent mieux que la semaine dernière.</div>
-    </div>`;
-  }
-  if(plateaus.length){
-    html += `<div class="stat-card">
-      <div class="stat-title">📊 Plateau détecté</div>
-      <div class="sr-sub">Charge inchangée depuis 4 séances sur :</div>
-      <div class="splits-list">${plateaus.map(p=>`<div class="split-row"><span>${p.name}</span><span>${p.weight}kg</span></div>`).join('')}</div>
-      <div class="sr-sub" style="margin-top:8px;">Essaie de varier les répétitions, le tempo, ou d'intercaler une semaine de deload pour relancer la progression.</div>
-    </div>`;
-  }
-  if(imbalance){
-    html += `<div class="stat-card">
-      <div class="stat-title">⚖️ Déséquilibre musculaire</div>
-      <div class="sr-sub">Groupes musculaires peu travaillés ces 4 dernières semaines : <b>${imbalance.join(', ')}</b>. Pense à les intégrer à tes prochaines séances pour rester équilibré·e.</div>
-    </div>`;
-  }
-  if(timeOfDay){
-    const best = timeOfDay[0];
-    html += `<div class="stat-card">
-      <div class="stat-title">⏰ Meilleur moment pour t'entraîner</div>
-      <div class="sr-sub">Tes séances du <b>${best.periode}</b> ont le ressenti d'effort moyen le plus bas (${best.avgDifficulty.toFixed(1)}/5 sur ${best.count} séances) — c'est probablement ton créneau le plus favorable.</div>
-    </div>`;
-  }
-  if(bestExos && bestExos.length){
-    html += `<div class="stat-card">
-      <div class="stat-title">📈 Exercices où tu progresses le plus vite</div>
-      <div class="splits-list">${bestExos.map(e=>`<div class="split-row"><span>${e.name}</span><span>${e.ratePerWeek>=0?'+':''}${e.ratePerWeek.toFixed(1)} kg/sem.</span></div>`).join('')}</div>
-    </div>`;
-  }
-  if(topFoods.length){
-    html += `<div class="stat-card">
-      <div class="stat-title">🥗 Aliments les plus consommés</div>
-      <div class="splits-list">${topFoods.map(([name,count])=>`<div class="split-row"><span>${name}</span><span>×${count}</span></div>`).join('')}</div>
-    </div>`;
-  }
-  if(!timeOfDay && !bestExos.length && !topFoods.length && !plateaus.length && !imbalance && !fatigueWeek){
-    html += `<div class="stat-card"><div class="empty-stat">Pas encore assez de régularité dans tes données pour dégager des tendances fiables. Reviens dans quelques jours !</div></div>`;
-  }
-  return html;
 }
 
 /* ============================================================
@@ -2052,10 +2016,10 @@ function renderNutrition(){
   el.innerHTML = `
     <div class="stat-card">
       <div class="stat-title">Aujourd'hui</div>
-      ${macroBarHtml('Calories', totals.calories, t.calories, 'var(--accent)')}
-      ${macroBarHtml('Protéines', totals.protein, t.protein, 'var(--muscu)')}
-      ${macroBarHtml('Glucides', totals.carbs, t.carbs, 'var(--course)')}
-      ${macroBarHtml('Lipides', totals.fat, t.fat, 'var(--warn)')}
+      ${macroBarHtml('Calories', totals.calories, t.calories, 'var(--gradient-accent)')}
+      ${macroBarHtml('Protéines', totals.protein, t.protein, 'var(--gradient-muscu)')}
+      ${macroBarHtml('Glucides', totals.carbs, t.carbs, 'var(--gradient-course)')}
+      ${macroBarHtml('Lipides', totals.fat, t.fat, 'var(--gradient-warn)')}
     </div>
     <button class="btn secondary" id="suggestTargetsBtn">Suggérer mes objectifs (selon profil)</button>
 
@@ -2341,6 +2305,12 @@ function caloriesBurnedToday(){
 }
 
 function buildCoachMessage(ratio){
+  const fatigueWeek = detectFatigueWeek();
+  if(fatigueWeek && fatigueWeek.verdict==='fatigue') return `⚠️ Ressenti d'effort en hausse cette semaine (${fatigueWeek.lastAvg.toFixed(1)} → ${fatigueWeek.thisAvg.toFixed(1)}/5) — envisage une séance plus légère ou un jour de repos.`;
+  const plateaus = detectPlateaus();
+  if(plateaus.length) return `📊 Plateau sur ${plateaus[0].name} (${plateaus[0].weight}kg depuis 4 séances) — varie les répétitions/le tempo ou intercale une semaine plus légère.`;
+  const imbalance = detectMuscleImbalance();
+  if(imbalance) return `⚖️ Peu travaillé ces 4 dernières semaines : ${imbalance.join(', ')} — pense à les inclure dans ta prochaine séance.`;
   if(ratio!=null && ratio>1.5) return "⚠️ Ta charge d'entraînement a beaucoup augmenté récemment — envisage une séance allégée ou un jour de repos.";
   if(ratio!=null && ratio<0.8) return '📉 Charge en baisse — tu peux augmenter progressivement le volume si tu te sens bien.';
   return '✅ Tout est équilibré. Suis le plan du jour normalement.';
@@ -2642,7 +2612,7 @@ function renderGreetingScreen(){
    NAVIGATION / INIT
    ============================================================ */
 let currentView='accueil';
-let entTab='today';
+let entTab='mes';
 const TITLES = { accueil:"", entrainement:'Entraînement', nutrition:'Nutrition', reglages:'Réglages' };
 
 function switchView(view){
@@ -2662,12 +2632,30 @@ function refreshCurrentView(){
 function renderAll(){ refreshCurrentView(); }
 
 function renderEntrainement(){
-  document.getElementById('entToday').classList.toggle('hidden', entTab!=='today');
+  document.getElementById('entMes').classList.toggle('hidden', entTab!=='mes');
   document.getElementById('entHistorique').classList.toggle('hidden', entTab!=='historique');
-  document.getElementById('entStats').classList.toggle('hidden', entTab!=='stats');
-  if(entTab==='today') renderEntrainementToday();
+  document.getElementById('entNouvelle').classList.toggle('hidden', entTab!=='nouvelle');
+  if(entTab==='mes') renderEntrainementToday();
   else if(entTab==='historique') renderHistorique();
-  else renderStats();
+  else renderNouvelleSeance();
+}
+
+function renderNouvelleSeance(){
+  const el = document.getElementById('nouvelleSeanceContent');
+  el.innerHTML = `
+    <button class="hero-card muscu" id="nsMuscuBtn" style="width:100%; text-align:left; cursor:pointer; border:none;">
+      <div class="hc-type">Musculation</div>
+      <div class="hc-title">Démarrer une séance</div>
+      <div class="hc-detail">Enregistre tes exercices, charges, séries et répétitions en comparant à ta dernière séance du même type.</div>
+    </button>
+    <button class="hero-card course" id="nsCourseBtn" style="width:100%; text-align:left; cursor:pointer; border:none; margin-top:14px;">
+      <div class="hc-type">Course à pied</div>
+      <div class="hc-title">Démarrer une sortie</div>
+      <div class="hc-detail">Suivi GPS, saisie manuelle, ou génération d'un programme sur mesure.</div>
+    </button>
+  `;
+  document.getElementById('nsMuscuBtn').onclick = ()=> openLogModal('muscu', null);
+  document.getElementById('nsCourseBtn').onclick = ()=> startCourseFlow(null);
 }
 
 function init(){
@@ -2691,11 +2679,9 @@ function init(){
     document.querySelectorAll('#histFilters .chip').forEach(c=>c.classList.toggle('active', c===chip));
     renderHistorique();
   });
-  document.getElementById('statsTabs').addEventListener('click', e=>{
-    const chip = e.target.closest('.chip'); if(!chip) return;
-    statTab = chip.dataset.stat;
-    document.querySelectorAll('#statsTabs .chip').forEach(c=>c.classList.toggle('active', c===chip));
-    renderStats();
+  document.getElementById('histSearchInput').addEventListener('input', e=>{
+    histSearchQuery = e.target.value;
+    renderHistorique();
   });
   if(!state.settings.onboarded){
     startOnboarding();
